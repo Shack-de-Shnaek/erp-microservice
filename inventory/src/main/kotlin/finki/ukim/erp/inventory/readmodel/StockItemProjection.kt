@@ -3,11 +3,15 @@ package finki.ukim.erp.inventory.readmodel
 import finki.ukim.erp.inventory.domain.stockitem.StockAdjustedEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockConfirmedEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockItemCreatedEvent
+import finki.ukim.erp.inventory.domain.stockitem.StockItemDeletedEvent
+import finki.ukim.erp.inventory.domain.stockitem.StockReorderThresholdUpdatedEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockReservationReleasedEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockReservedEvent
 import finki.ukim.erp.inventory.query.stockitem.FindAllStockItemsQuery
 import finki.ukim.erp.inventory.query.stockitem.FindLowStockItemsQuery
 import finki.ukim.erp.inventory.query.stockitem.FindStockItemByProductIdQuery
+import finki.ukim.erp.inventory.query.stockitem.FindStockItemByStockItemIdQuery
+import finki.ukim.erp.inventory.query.stockitem.FindStockSummaryQuery
 import org.axonframework.eventhandling.EventHandler
 import org.axonframework.queryhandling.QueryHandler
 import org.springframework.stereotype.Component
@@ -61,6 +65,18 @@ class StockItemProjection(
         }
     }
 
+    @EventHandler
+    @Transactional
+    fun on(event: StockReorderThresholdUpdatedEvent) {
+        upsert(event.stockItemId.value) { it.copy(reorderThreshold = event.reorderThreshold.value) }
+    }
+
+    @EventHandler
+    @Transactional
+    fun on(event: StockItemDeletedEvent) {
+        stockItemViewRepository.deleteById(event.stockItemId.value)
+    }
+
     @QueryHandler
     fun handle(query: FindAllStockItemsQuery): List<StockItemView> =
         stockItemViewRepository.findAll()
@@ -70,9 +86,26 @@ class StockItemProjection(
         stockItemViewRepository.findByProductId(query.productId)
 
     @QueryHandler
+    fun handle(query: FindStockItemByStockItemIdQuery): StockItemView? =
+        stockItemViewRepository.findById(query.stockItemId).orElse(null)
+
+    @QueryHandler
     fun handle(query: FindLowStockItemsQuery): List<StockItemView> =
         stockItemViewRepository.findAll()
             .filter { it.onHand - it.reserved <= it.reorderThreshold }
+
+    @QueryHandler
+    fun handle(query: FindStockSummaryQuery): StockSummaryResponse {
+        val all = stockItemViewRepository.findAll()
+        val lowStockCount = all.count { it.onHand - it.reserved <= it.reorderThreshold }
+        return StockSummaryResponse(
+            totalProducts = all.size,
+            totalOnHand = all.sumOf { it.onHand },
+            totalReserved = all.sumOf { it.reserved },
+            totalAvailable = all.sumOf { it.onHand - it.reserved },
+            lowStockCount = lowStockCount,
+        )
+    }
 
     private fun upsert(stockItemId: String, transform: (StockItemView) -> StockItemView) {
         val existing = stockItemViewRepository.findById(stockItemId).orElse(null) ?: return

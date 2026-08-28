@@ -30,6 +30,13 @@ data class StockAdjustedEvent(
         command.adjustment,
         command.reason,
     )
+
+    override fun toExternalEvent(): Any =
+        StockAdjustedExternalEvent(
+            stockItemId = stockItemId.value,
+            adjustment = adjustment,
+            reason = reason,
+        )
 }
 
 data class StockReservedEvent(
@@ -55,7 +62,14 @@ data class StockReservationReleasedEvent(
     val stockItemId: StockItemId,
     val orderRef: String,
     val quantity: Quantity,
-) : StockItemEvent(stockItemId)
+) : StockItemEvent(stockItemId) {
+    override fun toExternalEvent(): Any =
+        StockReservationReleasedExternalEvent(
+            stockItemId = stockItemId.value,
+            orderRef = orderRef,
+            quantity = quantity.amount,
+        )
+}
 
 data class StockConfirmedEvent(
     val stockItemId: StockItemId,
@@ -68,4 +82,20 @@ data class StockConfirmedEvent(
             orderRef = orderRef,
             quantity = quantity.amount,
         )
+}
+
+data class StockReorderThresholdUpdatedEvent(
+    val stockItemId: StockItemId,
+    val reorderThreshold: ReorderThreshold,
+) : StockItemEvent(stockItemId) {
+    constructor(command: UpdateReorderThresholdCommand) : this(
+        command.stockItemId,
+        command.reorderThreshold,
+    )
+}
+
+data class StockItemDeletedEvent(
+    val stockItemId: StockItemId,
+) : StockItemEvent(stockItemId) {
+    constructor(command: DeleteStockItemCommand) : this(command.stockItemId)
 }

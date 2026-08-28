@@ -30,4 +30,5 @@ data class ProductView(
 
 interface ProductViewRepository : JpaRepository<ProductView, String> {
     fun findByStatus(status: ProductStatus): List<ProductView>
+    fun findBySku(sku: String): ProductView?
 }

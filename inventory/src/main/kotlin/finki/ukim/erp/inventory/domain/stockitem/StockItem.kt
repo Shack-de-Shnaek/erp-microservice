@@ -85,6 +85,19 @@ class StockItem {
         apply(StockConfirmedEvent(command.stockItemId, command.orderRef, quantity))
     }
 
+    @CommandHandler
+    fun on(command: UpdateReorderThresholdCommand) {
+        if (reorderThreshold == command.reorderThreshold) {
+            return
+        }
+        apply(StockReorderThresholdUpdatedEvent(command))
+    }
+
+    @CommandHandler
+    fun on(command: DeleteStockItemCommand) {
+        apply(StockItemDeletedEvent(command))
+    }
+
     @EventSourcingHandler
     fun on(event: StockItemCreatedEvent) {
         stockItemId = event.stockItemId
@@ -117,5 +130,21 @@ class StockItem {
         onHand = Quantity((onHand?.amount ?: 0) - event.quantity.amount)
         reserved = Quantity((reserved?.amount ?: 0) - event.quantity.amount)
         reservationLedger.remove(event.orderRef)
+    }
+
+    @EventSourcingHandler
+    fun on(event: StockReorderThresholdUpdatedEvent) {
+        reorderThreshold = event.reorderThreshold
+    }
+
+    @EventSourcingHandler
+    fun on(event: StockItemDeletedEvent) {
+        // Aggregate state cleared on delete — event sourcing marks this as the terminal state
+        stockItemId = null
+        productRef = null
+        onHand = null
+        reserved = null
+        reorderThreshold = null
+        reservationLedger = mutableMapOf()
     }
 }

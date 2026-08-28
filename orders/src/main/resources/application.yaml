@@ -1,9 +1,34 @@
 spring:
   application:
     name: orders
+  datasource:
+    url: jdbc:postgresql://localhost:5439/orders
+    username: orders
+    password: orders
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      acks: all
   cloud:
     consul:
+      discovery:
+        register: true
+        health-check-path: /actuator/health
+        health-check-interval: 15s
       config:
         enabled: false
         import-check:
           enabled: false
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

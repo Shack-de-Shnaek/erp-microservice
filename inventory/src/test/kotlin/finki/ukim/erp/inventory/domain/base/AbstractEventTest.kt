@@ -5,6 +5,7 @@ import finki.ukim.erp.inventory.domain.product.ProductCreatedExternalEvent
 import finki.ukim.erp.inventory.domain.product.ProductDeactivatedEvent
 import finki.ukim.erp.inventory.domain.product.ProductId
 import finki.ukim.erp.inventory.domain.product.ProductReactivatedEvent
+import finki.ukim.erp.inventory.domain.product.ProductReactivatedExternalEvent
 import finki.ukim.erp.inventory.domain.product.ProductName
 import finki.ukim.erp.inventory.domain.product.Sku
 import finki.ukim.erp.inventory.domain.product.UnitOfMeasure
@@ -57,10 +58,8 @@ class AbstractEventTest {
             Quantity(10),
             ReorderThreshold(5),
         )
-        val productReactivated = ProductReactivatedEvent(productId)
 
         assertEquals(null, stockItemCreated.toExternalEvent())
-        assertEquals(null, productReactivated.toExternalEvent())
     }
 
     @Test
@@ -72,9 +71,14 @@ class AbstractEventTest {
             ProductName("Widget"),
             UnitOfMeasure("pcs"),
         )
+        val productReactivated = ProductReactivatedEvent(productId)
 
         val external = productCreated.toExternalEvent()
         check(external != null) { "ProductCreatedEvent must be externalized" }
         assertEquals("SKU-001", (external as ProductCreatedExternalEvent).sku)
+
+        val reactivatedExternal = productReactivated.toExternalEvent()
+        check(reactivatedExternal != null) { "ProductReactivatedEvent must be externalized" }
+        assertEquals(productId.value, (reactivatedExternal as ProductReactivatedExternalEvent).productId)
     }
 }

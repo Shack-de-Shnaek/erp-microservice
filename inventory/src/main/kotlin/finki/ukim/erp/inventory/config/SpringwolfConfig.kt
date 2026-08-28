@@ -2,8 +2,11 @@ package finki.ukim.erp.inventory.config
 
 import finki.ukim.erp.inventory.domain.product.ProductCreatedExternalEvent
 import finki.ukim.erp.inventory.domain.product.ProductDeactivatedExternalEvent
+import finki.ukim.erp.inventory.domain.product.ProductReactivatedExternalEvent
 import finki.ukim.erp.inventory.domain.product.ProductUpdatedExternalEvent
+import finki.ukim.erp.inventory.domain.stockitem.StockAdjustedExternalEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockConfirmedExternalEvent
+import finki.ukim.erp.inventory.domain.stockitem.StockReservationReleasedExternalEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockReservedExternalEvent
 import io.github.springwolf.bindings.kafka.annotations.KafkaAsyncOperationBinding
 import io.github.springwolf.core.asyncapi.annotations.AsyncOperation
@@ -51,6 +54,17 @@ class SpringwolfConfig {
     @Bean
     @AsyncPublisher(
         operation = AsyncOperation(
+            channelName = "product.reactivated",
+            description = "Published when a product is reactivated",
+            payloadType = ProductReactivatedExternalEvent::class,
+        ),
+    )
+    @KafkaAsyncOperationBinding
+    fun productReactivatedPublisher(): CompletableFuture<Void> = CompletableFuture.completedFuture(null)
+
+    @Bean
+    @AsyncPublisher(
+        operation = AsyncOperation(
             channelName = "stock.reserved",
             description = "Published when stock is reserved for an order",
             payloadType = StockReservedExternalEvent::class,
@@ -69,4 +83,26 @@ class SpringwolfConfig {
     )
     @KafkaAsyncOperationBinding
     fun stockConfirmedPublisher(): CompletableFuture<Void> = CompletableFuture.completedFuture(null)
+
+    @Bean
+    @AsyncPublisher(
+        operation = AsyncOperation(
+            channelName = "stock.adjusted",
+            description = "Published when stock is manually adjusted",
+            payloadType = StockAdjustedExternalEvent::class,
+        ),
+    )
+    @KafkaAsyncOperationBinding
+    fun stockAdjustedPublisher(): CompletableFuture<Void> = CompletableFuture.completedFuture(null)
+
+    @Bean
+    @AsyncPublisher(
+        operation = AsyncOperation(
+            channelName = "stock.released",
+            description = "Published when a stock reservation is released",
+            payloadType = StockReservationReleasedExternalEvent::class,
+        ),
+    )
+    @KafkaAsyncOperationBinding
+    fun stockReleasedPublisher(): CompletableFuture<Void> = CompletableFuture.completedFuture(null)
 }

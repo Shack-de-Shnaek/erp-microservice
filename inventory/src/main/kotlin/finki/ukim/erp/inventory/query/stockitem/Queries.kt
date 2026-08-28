@@ -7,3 +7,9 @@ data class FindStockItemByProductIdQuery(
 )
 
 data object FindLowStockItemsQuery
+
+data object FindStockSummaryQuery
+
+data class FindStockItemByStockItemIdQuery(
+    val stockItemId: String,
+)

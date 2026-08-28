@@ -7,6 +7,7 @@ import finki.ukim.erp.inventory.domain.product.ProductStatus
 import finki.ukim.erp.inventory.domain.product.ProductUpdatedEvent
 import finki.ukim.erp.inventory.query.product.FindAllProductsQuery
 import finki.ukim.erp.inventory.query.product.FindProductByIdQuery
+import finki.ukim.erp.inventory.query.product.FindProductBySkuQuery
 import finki.ukim.erp.inventory.query.product.FindProductsByStatusQuery
 import org.axonframework.eventhandling.EventHandler
 import org.axonframework.queryhandling.QueryHandler
@@ -63,6 +64,10 @@ class ProductProjection(
     @QueryHandler
     fun handle(query: FindProductByIdQuery): ProductView? =
         productViewRepository.findById(query.productId).orElse(null)
+
+    @QueryHandler
+    fun handle(query: FindProductBySkuQuery): ProductView? =
+        productViewRepository.findBySku(query.sku)
 
     @QueryHandler
     fun handle(query: FindProductsByStatusQuery): List<ProductView> =

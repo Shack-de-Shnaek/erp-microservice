@@ -4,7 +4,7 @@ services:
     container_name: consul
     ports:
       - "8500:8500"
-    command: "agent -dev -client=0.0.0.0"
+    command: "agent -dev -client=0.0.0.0 -log-level=warn"
     networks:
       - shared_net
 
@@ -28,12 +28,15 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
       KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
       CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+      KAFKA_LOG4J_ROOT_LOGLEVEL: 'WARN'
+      KAFKA_LOG4J_LOGGERS: 'kafka.server=WARN,kafka.controller=WARN,kafka.network=WARN,org.apache.kafka=WARN'
     networks:
       - shared_net
 
   postgres:
     image: postgres:16-alpine
     container_name: erp-postgres
+    stop_grace_period: 30s
     environment:
       POSTGRES_DB: inventory
       POSTGRES_USER: inventory
@@ -42,6 +45,7 @@ services:
       - "5439:5432"
     volumes:
       - ./docker-db/init.sql:/docker-entrypoint-initdb.d/1-init.sql
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - shared_net
 
@@ -77,6 +81,8 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: broker:29092
       CONSUL_HOST: consul
       CONSUL_PORT: 8500
+      CONSUL_REGISTER: "true"
+      SPRING_CLOUD_CONSUL_TOKEN_HEADER_ENABLED: "true"
     ports:
       - "8088:8080"
     depends_on:
@@ -97,8 +103,9 @@ services:
       SPRING_DATASOURCE_USERNAME: orders
       SPRING_DATASOURCE_PASSWORD: orders
       SPRING_KAFKA_BOOTSTRAP_SERVERS: broker:29092
-      CONSUL_HOST: consul
-      CONSUL_PORT: 8500
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+      SPRING_CLOUD_CONSUL_TOKEN_HEADER_ENABLED: "true"
     ports:
       - "8089:8080"
     depends_on:
@@ -114,12 +121,10 @@ services:
     container_name: api_gateway
     environment:
       SPRING_APPLICATION_NAME: api-gateway
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/inventory
-      SPRING_DATASOURCE_USERNAME: inventory
-      SPRING_DATASOURCE_PASSWORD: inventory
       SPRING_KAFKA_BOOTSTRAP_SERVERS: broker:29092
-      CONSUL_HOST: consul
-      CONSUL_PORT: 8500
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+      SPRING_CLOUD_CONSUL_TOKEN_HEADER_ENABLED: "true"
       KEYCLOAK_ISSUER_URL: http://keycloak:8080/realms/finki-services
       NIMBUS_JWK_SET_URL: http://keycloak:8080/realms/finki-services/protocol/openid-connect/keys
     ports:
@@ -135,3 +140,6 @@ services:
 networks:
   shared_net:
     driver: bridge
+
+volumes:
+  postgres_data:

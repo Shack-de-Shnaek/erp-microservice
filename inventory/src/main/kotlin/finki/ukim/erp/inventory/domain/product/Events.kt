@@ -63,4 +63,7 @@ data class ProductReactivatedEvent(
     val productId: ProductId,
 ) : ProductEvent(productId) {
     constructor(command: ReactivateProductCommand) : this(command.productId)
+
+    override fun toExternalEvent(): Any =
+        ProductReactivatedExternalEvent(productId = productId.value)
 }

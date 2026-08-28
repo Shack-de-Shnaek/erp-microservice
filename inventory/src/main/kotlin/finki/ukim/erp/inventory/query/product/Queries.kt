@@ -8,6 +8,10 @@ data class FindProductByIdQuery(
     val productId: String,
 )
 
+data class FindProductBySkuQuery(
+    val sku: String,
+)
+
 data class FindProductsByStatusQuery(
     val status: ProductStatus,
 )

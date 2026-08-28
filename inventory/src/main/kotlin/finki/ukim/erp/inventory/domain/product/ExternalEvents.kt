@@ -17,3 +17,7 @@ data class ProductUpdatedExternalEvent(
 data class ProductDeactivatedExternalEvent(
     val productId: String,
 )
+
+data class ProductReactivatedExternalEvent(
+    val productId: String,
+)

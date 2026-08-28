@@ -27,3 +27,11 @@ data class StockItemView(
 interface StockItemViewRepository : JpaRepository<StockItemView, String> {
     fun findByProductId(productId: String): StockItemView?
 }
+
+data class StockSummaryResponse(
+    val totalProducts: Int,
+    val totalOnHand: Int,
+    val totalReserved: Int,
+    val totalAvailable: Int,
+    val lowStockCount: Int,
+)

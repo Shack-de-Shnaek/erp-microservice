@@ -30,3 +30,12 @@ data class ConfirmStockCommand(
     @TargetAggregateIdentifier val stockItemId: StockItemId,
     val orderRef: String,
 )
+
+data class UpdateReorderThresholdCommand(
+    @TargetAggregateIdentifier val stockItemId: StockItemId,
+    val reorderThreshold: ReorderThreshold,
+)
+
+data class DeleteStockItemCommand(
+    @TargetAggregateIdentifier val stockItemId: StockItemId,
+)
