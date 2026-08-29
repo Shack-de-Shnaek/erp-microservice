@@ -9,6 +9,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import java.math.BigDecimal
 
 @Entity
 @Table
@@ -25,12 +26,16 @@ open class InvoiceLineItem(
     open var inventoryItemId: Long = 0L,
 
     @Column(name = "quantity", nullable = false)
-    open var quantity: Int = 1
+    open var quantity: Int = 1,
+
+    @Column(name = "price", nullable = false, precision = 19, scale = 2)
+    open var price: BigDecimal = BigDecimal.ZERO
 ) {
     protected constructor() : this(
         id = null,
         invoice = null,
         inventoryItemId = 0L,
-        quantity = 1
+        quantity = 1,
+        price = BigDecimal.ZERO
     )
 }

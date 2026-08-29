@@ -12,3 +12,26 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Tokens are issued via Keycloak behind the api-gateway; this service only
+          # validates them against Keycloak's JWK set / issuer.
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/erp}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+springwolf:
+  docket:
+    base-package: finki.ukim.erp.orders
+    info:
+      title: Orders Service
+      version: 0.0.1
+    servers:
+      kafka:
+        protocol: kafka
+        url: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}

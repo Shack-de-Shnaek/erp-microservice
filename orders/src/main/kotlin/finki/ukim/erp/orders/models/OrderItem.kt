@@ -8,6 +8,7 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
+import java.math.BigDecimal
 
 @Entity
 open class OrderItem(
@@ -21,6 +22,9 @@ open class OrderItem(
     @Column(name = "quantity", nullable = false)
     open var quantity: Int = 0,
 
+    @Column(name = "price", nullable = false, precision = 19, scale = 2)
+    open var price: BigDecimal = BigDecimal.ZERO,
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "order_id", nullable = false)
     open var order: Order? = null
@@ -29,6 +33,7 @@ open class OrderItem(
         id = null,
         productId = 0L,
         quantity = 0,
+        price = BigDecimal.ZERO,
         order = null
     )
 }

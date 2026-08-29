@@ -3,6 +3,8 @@ package finki.ukim.erp.orders
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
@@ -26,6 +28,13 @@ open class Order(
     @Column(name = "date", nullable = false)
     open var date: LocalDateTime = LocalDateTime.now(),
 
+    @Column(name = "customer_id", nullable = false)
+    open var customerId: String = "",
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    open var status: OrderStatus = OrderStatus.PENDING,
+
     @OneToMany(mappedBy = "order", cascade = [CascadeType.ALL], orphanRemoval = true)
     open var orderItems: MutableList<OrderItem> = mutableListOf(),
 
@@ -37,6 +46,8 @@ open class Order(
         name = "",
         surname = "",
         date = LocalDateTime.now(),
+        customerId = "",
+        status = OrderStatus.PENDING,
         orderItems = mutableListOf(),
         invoice = null
     )
