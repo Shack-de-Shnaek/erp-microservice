@@ -2,8 +2,42 @@ services:
   postgres:
     image: 'postgres:latest'
     environment:
-      - 'POSTGRES_DB=mydatabase'
-      - 'POSTGRES_PASSWORD=secret'
-      - 'POSTGRES_USER=myuser'
+      - POSTGRES_DB=${POSTGRES_DB:-orders}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+    volumes:
+      - db_data:/var/lib/postgresql/data
     ports:
       - '5432'
+    networks:
+      orders_net:
+        aliases:
+          - "postgres"
+
+  api:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    networks:
+      orders_net:
+        aliases:
+          - "api"
+      erp_shared:
+        aliases:
+          - "orders_service"
+    ports:
+      - "${ORDERS_HOST_PORT:-8000}:80"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-orders}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+
+
+networks:
+  erp_shared:
+    driver: bridge
+    external: true
+  orders_net:
+
+volumes:
+  db_data:
