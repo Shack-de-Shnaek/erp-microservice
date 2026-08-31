@@ -4,12 +4,12 @@ services:
     container_name: consul
     ports:
       - "8500:8500"
-    command: "agent -dev -client=0.0.0.0 -log-level=warn"
+    command: "agent -dev -client=0.0.0.0 -log-level=error"
     networks:
       - shared_net
 
   broker:
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.5.1
     container_name: kafka-broker
     ports:
       - "9092:9092"
@@ -29,7 +29,13 @@ services:
       KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
       CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
       KAFKA_LOG4J_ROOT_LOGLEVEL: 'WARN'
-      KAFKA_LOG4J_LOGGERS: 'kafka.server=WARN,kafka.controller=WARN,kafka.network=WARN,org.apache.kafka=WARN'
+      KAFKA_LOG4J_LOGGERS: 'kafka.server=WARN,kafka.controller=WARN,kafka.network=WARN,org.apache.kafka=WARN,kafka.log.LogManager=WARN,kafka.cluster.Partition=WARN,state.change.logger=WARN,org.apache.kafka.clients.consumer.ConsumerCoordinator=WARN'
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
     networks:
       - shared_net
 
@@ -69,6 +75,20 @@ services:
     volumes:
       - ./keycloak/import:/opt/keycloak/config/import:ro
 
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.1
+    container_name: kafka-init
+    depends_on:
+      broker:
+        condition: service_healthy
+    command: >
+      bash -c "
+        kafka-topics --bootstrap-server broker:29092 --create --if-not-exists --topic order.placed --partitions 1 --replication-factor 1 &&
+        echo 'Topics created successfully'
+      "
+    networks:
+      - shared_net
+
   inventory-app:
     build:
       context: ./inventory
@@ -82,13 +102,17 @@ services:
       CONSUL_HOST: consul
       CONSUL_PORT: 8500
       CONSUL_REGISTER: "true"
-      SPRING_CLOUD_CONSUL_TOKEN_HEADER_ENABLED: "true"
     ports:
       - "8088:8080"
     depends_on:
-      - consul
-      - broker
-      - postgres
+      consul:
+        condition: service_started
+      broker:
+        condition: service_healthy
+      postgres:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
     networks:
       - shared_net
 
@@ -105,13 +129,17 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: broker:29092
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
-      SPRING_CLOUD_CONSUL_TOKEN_HEADER_ENABLED: "true"
     ports:
       - "8089:8080"
     depends_on:
-      - consul
-      - broker
-      - postgres
+      consul:
+        condition: service_started
+      broker:
+        condition: service_healthy
+      postgres:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
     networks:
       - shared_net
 
@@ -121,19 +149,21 @@ services:
     container_name: api_gateway
     environment:
       SPRING_APPLICATION_NAME: api-gateway
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: broker:29092
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
-      SPRING_CLOUD_CONSUL_TOKEN_HEADER_ENABLED: "true"
       KEYCLOAK_ISSUER_URL: http://keycloak:8080/realms/finki-services
       NIMBUS_JWK_SET_URL: http://keycloak:8080/realms/finki-services/protocol/openid-connect/keys
     ports:
       - "8087:8080"
     depends_on:
-      - consul
-      - broker
-      - keycloak
-      - postgres
+      consul:
+        condition: service_started
+      broker:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      postgres:
+        condition: service_started
     networks:
       - shared_net
 

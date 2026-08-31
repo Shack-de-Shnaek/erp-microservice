@@ -14,9 +14,14 @@ class SecurityConfig {
     fun securityWebFilterChain(security: ServerHttpSecurity): SecurityWebFilterChain {
         security
             .csrf { it.disable() }
+            .oauth2ResourceServer { it.jwt {} }
             .authorizeExchange { ex ->
-                ex.pathMatchers("/actuator/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                ex.pathMatchers("/inventory/**,/orders/**,/api/**").authenticated()
+                ex.pathMatchers("/actuator/**").permitAll()
+                ex.pathMatchers("/swagger-ui/**").permitAll()
+                ex.pathMatchers("/v3/api-docs/**").permitAll()
+                ex.pathMatchers("/inventory/**").authenticated()
+                ex.pathMatchers("/orders/**").authenticated()
+                ex.pathMatchers("/api/**").authenticated()
                 ex.anyExchange().permitAll()
             }
         return security.build()
