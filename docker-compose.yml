@@ -1,16 +1,29 @@
 services:
-  consul:
-    image: consul:1.15.2
-    container_name: consul
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: inventory
+      POSTGRES_USER: inventory
+      POSTGRES_PASSWORD: password
     ports:
-      - "8500:8500"
-    command: "agent -dev -client=0.0.0.0 -log-level=error"
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker-db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory -d inventory"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
-      - shared_net
+      - app-network
 
   broker:
-    image: confluentinc/cp-kafka:7.5.1
-    container_name: kafka-broker
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: broker
+    restart: unless-stopped
     ports:
       - "9092:9092"
     environment:
@@ -18,46 +31,44 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
       KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092'
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_PROCESS_ROLES: 'broker,controller'
       KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker:29093'
-      KAFKA_LISTENERS: 'PLAINTEXT://broker:29092,CONTROLLER://broker:29093,PLAINTEXT_HOST://0.0.0.0:9092'
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092'
       KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
       KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
       CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
-      KAFKA_LOG4J_ROOT_LOGLEVEL: 'WARN'
-      KAFKA_LOG4J_LOGGERS: 'kafka.server=WARN,kafka.controller=WARN,kafka.network=WARN,org.apache.kafka=WARN,kafka.log.LogManager=WARN,kafka.cluster.Partition=WARN,state.change.logger=WARN,org.apache.kafka.clients.consumer.ConsumerCoordinator=WARN'
     healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
-      interval: 10s
-      timeout: 10s
+      test: ["CMD-SHELL", "nc -z localhost 9092 || exit 1"]
+      interval: 5s
+      timeout: 5s
       retries: 10
-      start_period: 90s
     networks:
-      - shared_net
+      - app-network
 
-  postgres:
-    image: postgres:16-alpine
-    container_name: erp-postgres
-    stop_grace_period: 30s
-    environment:
-      POSTGRES_DB: inventory
-      POSTGRES_USER: inventory
-      POSTGRES_PASSWORD: inventory
+  consul:
+    image: hashicorp/consul:latest
+    container_name: consul
+    restart: unless-stopped
     ports:
-      - "5439:5432"
-    volumes:
-      - ./docker-db/init.sql:/docker-entrypoint-initdb.d/1-init.sql
-      - postgres_data:/var/lib/postgresql/data
+      - "8500:8500"
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
-      - shared_net
+      - app-network
 
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0.2
+    image: quay.io/keycloak/keycloak:24.0.0
     container_name: keycloak
+    restart: on-failure
+    command: start-dev
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
@@ -66,109 +77,67 @@ services:
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: keycloak
     ports:
-      - "8082:8080"
-    command: start-dev
+      - "8080:8080"
     depends_on:
-      - postgres
-    networks:
-      - shared_net
-    volumes:
-      - ./keycloak/import:/opt/keycloak/config/import:ro
-
-  kafka-init:
-    image: confluentinc/cp-kafka:7.5.1
-    container_name: kafka-init
-    depends_on:
-      broker:
+      postgres:
         condition: service_healthy
-    command: >
-      bash -c "
-        kafka-topics --bootstrap-server broker:29092 --create --if-not-exists --topic order.placed --partitions 1 --replication-factor 1 &&
-        echo 'Topics created successfully'
-      "
     networks:
-      - shared_net
+      - app-network
 
-  inventory-app:
+  inventory-service:
     build:
       context: ./inventory
-    container_name: inventory-app
+      dockerfile: Dockerfile
+    container_name: inventory-service
+    restart: on-failure
     environment:
-      SPRING_APPLICATION_NAME: inventory
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/inventory
-      SPRING_DATASOURCE_USERNAME: inventory
-      SPRING_DATASOURCE_PASSWORD: inventory
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: inventory
+      DB_USERNAME: inventory
+      DB_PASSWORD: password
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
       CONSUL_HOST: consul
       CONSUL_PORT: 8500
-      CONSUL_REGISTER: "true"
     ports:
-      - "8088:8080"
+      - "8081:8081"
     depends_on:
-      consul:
-        condition: service_started
+      postgres:
+        condition: service_healthy
       broker:
         condition: service_healthy
-      postgres:
-        condition: service_started
-      kafka-init:
-        condition: service_completed_successfully
+      consul:
+        condition: service_healthy
     networks:
-      - shared_net
+      - app-network
 
-  orders-app:
+  order-service:
     build:
       context: ./orders
-    container_name: orders-app
+      dockerfile: Dockerfile
+    container_name: order-service
+    restart: on-failure
     environment:
-      SPRING_APPLICATION_NAME: orders
-      SPRING_CONFIG_IMPORT: optional:consul
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orders
       SPRING_DATASOURCE_USERNAME: orders
       SPRING_DATASOURCE_PASSWORD: orders
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
     ports:
-      - "8089:8080"
+      - "8082:8082"
     depends_on:
-      consul:
-        condition: service_started
+      postgres:
+        condition: service_healthy
       broker:
         condition: service_healthy
-      postgres:
-        condition: service_started
-      kafka-init:
-        condition: service_completed_successfully
-    networks:
-      - shared_net
-
-  api_gateway:
-    build:
-      context: ./api-gateway
-    container_name: api_gateway
-    environment:
-      SPRING_APPLICATION_NAME: api-gateway
-      SPRING_CLOUD_CONSUL_HOST: consul
-      SPRING_CLOUD_CONSUL_PORT: 8500
-      KEYCLOAK_ISSUER_URL: http://keycloak:8080/realms/finki-services
-      NIMBUS_JWK_SET_URL: http://keycloak:8080/realms/finki-services/protocol/openid-connect/keys
-    ports:
-      - "8087:8080"
-    depends_on:
       consul:
-        condition: service_started
-      broker:
         condition: service_healthy
-      keycloak:
-        condition: service_started
-      postgres:
-        condition: service_started
     networks:
-      - shared_net
+      - app-network
 
 networks:
-  shared_net:
+  app-network:
     driver: bridge
 
 volumes:

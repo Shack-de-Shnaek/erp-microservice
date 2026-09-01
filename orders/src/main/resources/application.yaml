@@ -2,15 +2,15 @@ spring:
   application:
     name: orders
   datasource:
-    url: jdbc:postgresql://localhost:5439/orders
-    username: orders
-    password: orders
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5439/orders}
+    username: ${SPRING_DATASOURCE_USERNAME:orders}
+    password: ${SPRING_DATASOURCE_PASSWORD:orders}
   jpa:
     hibernate:
       ddl-auto: update
     open-in-view: false
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       acks: all
   cloud:
@@ -25,7 +25,7 @@ spring:
           enabled: false
 
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 management:
   endpoints:
