@@ -139,8 +139,6 @@ class StockItem {
 
     @EventSourcingHandler
     fun on(event: StockItemDeletedEvent) {
-        // Aggregate state cleared on delete — event sourcing marks this as the terminal state
-        stockItemId = null
         productRef = null
         onHand = null
         reserved = null

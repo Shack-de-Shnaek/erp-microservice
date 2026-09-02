@@ -169,4 +169,44 @@ class StockItemTest {
             .`when`(AdjustStockCommand(command.stockItemId, 0, "no-op"))
             .expectNoEvents()
     }
+
+    @Test
+    fun `deleting a stock item applies the deleted event and clears state`() {
+        val command = createCommand()
+        val created = createdEvent(command)
+
+        fixture.given(created)
+            .`when`(DeleteStockItemCommand(command.stockItemId))
+            .expectEvents(StockItemDeletedEvent(command.stockItemId))
+            .expectState { state ->
+                check(state.productRef == null) { "productRef should be null after delete" }
+                check(state.onHand == null) { "onHand should be null after delete" }
+                check(state.reserved == null) { "reserved should be null after delete" }
+                check(state.reorderThreshold == null) { "reorderThreshold should be null after delete" }
+                check(state.reservationLedger.isEmpty()) { "reservationLedger should be empty after delete" }
+            }
+    }
+
+    @Test
+    fun `updating reorder threshold applies the threshold updated event`() {
+        val command = createCommand()
+        val created = createdEvent(command)
+
+        fixture.given(created)
+            .`when`(UpdateReorderThresholdCommand(command.stockItemId, ReorderThreshold(25)))
+            .expectEvents(StockReorderThresholdUpdatedEvent(command.stockItemId, ReorderThreshold(25)))
+            .expectState { state ->
+                check(state.reorderThreshold == ReorderThreshold(25)) { "threshold should be updated" }
+            }
+    }
+
+    @Test
+    fun `updating reorder threshold to the same value is a no-op`() {
+        val command = createCommand()
+        val created = createdEvent(command)
+
+        fixture.given(created)
+            .`when`(UpdateReorderThresholdCommand(command.stockItemId, ReorderThreshold(10)))
+            .expectNoEvents()
+    }
 }
