@@ -100,7 +100,7 @@ services:
       CONSUL_HOST: consul
       CONSUL_PORT: 8500
     ports:
-      - "8081:8081"
+      - "8081:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -125,13 +125,36 @@ services:
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
     ports:
-      - "8082:8082"
+      - "8089:8080"
     depends_on:
       postgres:
         condition: service_healthy
       broker:
         condition: service_healthy
       consul:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    restart: on-failure
+    environment:
+      KEYCLOAK_ISSUER_URL: http://keycloak:8080/realms/finki-services
+      NIMBUS_JWK_SET_URL: http://keycloak:8080/realms/finki-services/protocol/openid-connect/keys
+      CONSUL_HOST: consul
+      CONSUL_PORT: 8500
+    ports:
+      - "8088:8080"
+    depends_on:
+      consul:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      broker:
         condition: service_healthy
     networks:
       - app-network
