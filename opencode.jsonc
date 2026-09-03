@@ -1,0 +1,13 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "inventory": {
+      "type": "local",
+      "command": [".venv/bin/python", "server.py"],
+      "cwd": "mcp-server",
+      "environment": {
+        "INVENTORY_URL": "http://localhost:8081"
+      }
+    }
+  }
+}
