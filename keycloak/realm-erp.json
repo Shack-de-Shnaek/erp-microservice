@@ -1,0 +1,90 @@
+{
+  "realm": "erp",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "roles": {
+    "realm": [
+      {
+        "name": "ADMIN",
+        "description": "Staff: approves, rejects and invoices orders"
+      },
+      {
+        "name": "CLIENT",
+        "description": "Customer: places, pays for and cancels their own orders"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "erp-cli",
+      "name": "Command-line / test client",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "3600"
+      }
+    },
+    {
+      "clientId": "erp-gateway",
+      "name": "API gateway",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "gateway-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "redirectUris": [
+        "http://localhost:8080/*",
+        "http://localhost:8000/*"
+      ],
+      "webOrigins": [
+        "*"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "staff",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Ana",
+      "lastName": "Staff",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "staff",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN"
+      ],
+      "email": "staff@erp.local",
+      "requiredActions": []
+    },
+    {
+      "username": "customer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "John",
+      "lastName": "Doe",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "customer",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "CLIENT"
+      ],
+      "email": "customer@erp.local",
+      "requiredActions": []
+    }
+  ]
+}

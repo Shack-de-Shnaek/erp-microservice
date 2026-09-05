@@ -28,9 +28,18 @@ class SecurityConfig {
             csrf { disable() }
             sessionManagement { sessionCreationPolicy = SessionCreationPolicy.STATELESS }
             authorizeHttpRequests {
+                // The API documentation is public: it describes the contract, it does not expose
+                // any of the data behind it. /swagger-ui.html is listed separately because it is
+                // the redirect into /swagger-ui/, not a path underneath it.
+                authorize("/v3/api-docs", permitAll)
                 authorize("/v3/api-docs/**", permitAll)
+                authorize("/swagger-ui.html", permitAll)
                 authorize("/swagger-ui/**", permitAll)
                 authorize("/springwolf/**", permitAll)
+                // Consul polls this unauthenticated to decide whether to keep advertising
+                // the instance; the rest of the actuator stays behind a token.
+                authorize("/actuator/health", permitAll)
+                authorize("/actuator/health/**", permitAll)
                 authorize(anyRequest, authenticated)
             }
             oauth2ResourceServer {

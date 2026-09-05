@@ -1,6 +1,69 @@
 spring:
   application:
     name: orders
+  # Spring Cloud Config-style imports are opt-in since 2020.x: without this line the
+  # consul-config starter is on the classpath but never contributes a property source, so shared
+  # configuration under config/orders/ in Consul's KV store would be silently ignored. `optional:`
+  # keeps the service bootable when Consul is not running (tests, a single-service demo).
+  config:
+    # Quoted: the trailing colon would otherwise be read as a mapping indicator and the
+    # file would fail to parse.
+    import: "optional:consul:"
+  cloud:
+    consul:
+      # No placeholder indirection: these are ordinary Spring properties, so a deployment
+      # overrides them with SPRING_CLOUD_CONSUL_HOST / SPRING_CLOUD_CONSUL_PORT - the names every
+      # service in the system uses - rather than with a variable invented here.
+      host: consul
+      port: 8500
+      config:
+        # config/orders/ overrides config/application/, which holds settings shared by every
+        # service in the system.
+        format: yaml
+        prefix: config
+        default-context: application
+        data-key: application.yaml
+      discovery:
+        # Registers this instance in Consul's registry so the api-gateway can route to it and
+        # Feign can resolve `inventory` by name rather than by host. Consul polls the health
+        # check below and stops advertising the instance the moment it fails.
+        register: true
+        register-health-check: true
+        # The name other services address this one by - it is what `@FeignClient(name = ...)` in
+        # their code has to match, so it is pinned to the application name rather than left to a
+        # default.
+        service-name: ${spring.application.name}
+        # Required behind Docker: without it the instance registers as its container hostname,
+        # and Consul - resolving that from inside its own container - health-checks something
+        # else entirely and marks this service permanently unhealthy.
+        prefer-ip-address: true
+        health-check-path: /actuator/health
+        health-check-interval: 10s
+        instance-id: ${spring.application.name}-${random.value}
+    circuitbreaker:
+      resilience4j:
+        # Run the guarded call on the caller's own thread. The default hands it to a time-limiter
+        # thread pool, which would leave the correlation id behind in the calling thread's MDC and
+        # send every outgoing request with a freshly minted one - the exact thing the id exists to
+        # prevent.
+        disable-threadpool: true
+    openfeign:
+      circuitbreaker:
+        # Routes every Feign call through a circuit breaker, so a failure lands in the client's
+        # fallback rather than propagating as a raw connection error.
+        enabled: true
+        # Every method of a client looks its configuration up under the client's name, so the
+        # thresholds below are set once for inventory rather than per endpoint. Each method still
+        # gets its own breaker - `InventoryClientgetProductsList` is what appears in the logs.
+        group:
+          enabled: true
+      client:
+        config:
+          default:
+            # Deliberately short. A caller waiting on an order is not helped by a request that
+            # eventually succeeds after half a minute; it is helped by a fast, honest 503.
+            connect-timeout: 2000
+            read-timeout: 3000
   datasource:
     url: jdbc:postgresql://postgres:5432/${POSTGRES_DB:orders}
     username: ${POSTGRES_USER:postgres}
@@ -22,16 +85,104 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
+      # Events are serialized to JSON by the publishing handler, so both ends of the wire are text.
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # Every replica must acknowledge. An event that reached one broker which then died is an
+      # announcement other services never hear, and there is no second chance to make it.
+      acks: all
+    consumer:
+      group-id: ${ORDERS_CONSUMER_GROUP:orders-group}
+      # From the beginning, so an event published while this service was down is still processed
+      # when it comes back rather than skipped.
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+axon:
+  axonserver:
+    # No Axon Server in this deployment: the event store is the JPA one, in the same Postgres
+    # instance as the read model, so both move in a single transaction.
+    enabled: false
+  serializer:
+    general: jackson
+    events: jackson
+    messages: jackson
+  eventhandling:
+    processors:
+      # Publishing to Kafka stays on a tracking processor: a broker outage should delay delivery
+      # and catch up from the event store, not fail the command.
+      event-messaging:
+        mode: tracking
+
+# The OpenAPI description of the REST API. Both are on by default; stated explicitly so that a
+# deployment which wants the documentation off has one obvious place to turn it off, and so the
+# paths below are the ones SecurityConfig lets through unauthenticated.
+springdoc:
+  # springwolf ships its own @RestControllers (/springwolf/docs, /springwolf/ui-config). They are
+  # machinery, not part of the ordering contract, and springdoc would otherwise list them
+  # alongside the real endpoints - undocumented, since there is nothing of ours to annotate there.
+  packages-to-scan: finki.ukim.erp.orders.controllers
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
 
 springwolf:
+  # Off in the test suite (src/test/resources/application.yaml), because springwolf scans the
+  # Kafka listeners at startup and there is no broker there.
+  enabled: true
   docket:
     base-package: finki.ukim.erp.orders
     info:
-      title: Orders Service
+      title: Orders Service Events
       version: 0.0.1
+      description: >-
+        Kafka events published and consumed by the orders service. Publications are the public
+        (external) form of the aggregate's domain events; the one subscription is owned by the
+        inventory service.
     servers:
       kafka:
         protocol: kafka
-        url: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+        # `host`, not `url`: springwolf 2.x publishes AsyncAPI 3, whose server object names the
+        # host and protocol separately. With `url` the context fails to start, and only when
+        # springwolf is enabled - which the test suite is not.
+        host: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        # Five calls before the breaker is willing to judge; below that a single unlucky request
+        # would trip it.
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        # A 404 is inventory answering correctly that it has never heard of a product. Counting
+        # it as a failure would let ordinary traffic for unknown products open the breaker and
+        # take out the valid orders alongside them.
+        ignore-exceptions:
+          - feign.FeignException.NotFound
+  timelimiter:
+    configs:
+      default:
+        # Above the 3s read timeout, so the HTTP client is what gives up first and the breaker
+        # records a real transport failure rather than a timeout it imposed itself.
+        timeout-duration: 5s
+        cancel-running-future: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # health is what Consul polls; info identifies the build behind an instance.
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized

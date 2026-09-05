@@ -9,8 +9,12 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
-import java.math.BigDecimal
 
+/**
+ * A line on an invoice. Deliberately a separate entity from [OrderItem] even though the two look
+ * alike: the invoice is a snapshot of what was billed, and correcting an invoice line must not
+ * move the order it was issued for.
+ */
 @Entity
 @Table
 open class InvoiceLineItem(
@@ -23,19 +27,15 @@ open class InvoiceLineItem(
     open var invoice: Invoice? = null,
 
     @Column(name = "inventory_item_id", nullable = false)
-    open var inventoryItemId: Long = 0L,
+    open var inventoryItemId: ProductId = ProductId(),
 
     @Column(name = "quantity", nullable = false)
-    open var quantity: Int = 1,
+    open var quantity: Quantity = Quantity(),
 
     @Column(name = "price", nullable = false, precision = 19, scale = 2)
-    open var price: BigDecimal = BigDecimal.ZERO
+    open var price: Money = Money.ZERO
 ) {
-    protected constructor() : this(
-        id = null,
-        invoice = null,
-        inventoryItemId = 0L,
-        quantity = 1,
-        price = BigDecimal.ZERO
-    )
+    protected constructor() : this(id = null)
+
+    fun lineTotal(): Money = price * quantity
 }

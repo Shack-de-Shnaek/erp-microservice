@@ -1,0 +1,50 @@
+## Test-only configuration. Shadows src/main/resources/application.yaml on the test classpath so
+## the suite runs against in-memory H2 (event store + read model) with no Postgres, Consul,
+## Kafka broker or Keycloak reachable.
+spring:
+  application:
+    name: orders
+  datasource:
+    url: jdbc:h2:mem:orders;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  cloud:
+    consul:
+      enabled: false
+      config:
+        enabled: false
+      discovery:
+        enabled: false
+        register: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # jwk-set-uri (unlike issuer-uri) is resolved lazily, so the context starts
+          # without Keycloak being up.
+          jwk-set-uri: http://localhost:8080/realms/erp/protocol/openid-connect/certs
+
+axon:
+  axonserver:
+    enabled: false
+  serializer:
+    general: jackson
+    events: jackson
+    messages: jackson
+
+orders:
+  kafka:
+    # No broker in the test suite, so neither end of the Kafka wiring is started. The inbound
+    # handler is exercised directly in ProductDiscontinuedEventHandlerTest.
+    publishing-enabled: false
+    consuming-enabled: false
+
+springwolf:
+  enabled: false

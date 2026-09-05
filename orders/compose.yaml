@@ -1,23 +1,34 @@
 services:
+  # On orders_net only. Another team's container sits on erp_shared and has no route to this
+  # network, so the orders database is unreachable from outside this compose file - which is the
+  # point: the data behind the aggregate is reached through the API, never through the database.
   postgres:
     image: 'postgres:latest'
+    container_name: orders_postgres
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-orders}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
     volumes:
       - db_data:/var/lib/postgresql/data
-    ports:
+    # No host mapping. Nothing outside the compose file needs to reach Postgres directly, and
+    # publishing the port would put it on the developer's machine for anything to connect to.
+    expose:
       - '5432'
     networks:
       orders_net:
         aliases:
           - "postgres"
 
+  # On both networks: orders_net to reach its own database, erp_shared to reach Kafka, Consul,
+  # Keycloak and the other teams' services.
   api:
     build:
       context: .
       dockerfile: ./Dockerfile
+    container_name: orders_service
+    depends_on:
+      - postgres
     networks:
       orders_net:
         aliases:
@@ -28,16 +39,30 @@ services:
     ports:
       - "${ORDERS_HOST_PORT:-8000}:80"
     environment:
+      # Container names throughout, never localhost: inside a container localhost is the container
+      # itself, and every one of these lives somewhere else on the network.
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-orders}
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-
+      # Consul, Kafka and Keycloak are shared across the system, so they are addressed by their
+      # aliases on the erp_shared network rather than being brought up per service here. Consul
+      # itself is owned by another team's compose file; this service only registers with it.
+      - SPRING_CLOUD_CONSUL_HOST=${CONSUL_HOST:-consul}
+      - SPRING_CLOUD_CONSUL_PORT=${CONSUL_PORT:-8500}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-broker:29092}
+      - KEYCLOAK_ISSUER_URI=${KEYCLOAK_ISSUER_URI:-http://keycloak:8080/realms/erp}
+      # No address for the inventory service, deliberately: the Feign client resolves `inventory`
+      # through Consul, so there is nothing here to keep in step when instances come and go.
 
 networks:
+  # Created by whichever compose file brings up Kafka; this one only joins it, so the broker and
+  # the other services are already there when the orders containers start.
   erp_shared:
-    driver: bridge
     external: true
+  # Private to this service: its database and its api, nothing else.
   orders_net:
+    name: orders_net
+    driver: bridge
 
 volumes:
   db_data:

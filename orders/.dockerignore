@@ -1,0 +1,23 @@
+# Everything the image builds for itself, plus everything that only means something on a
+# developer's machine. Keeping these out of the build context makes the context small and, more
+# importantly, stops a locally built target/ from being copied over the one the builder stage
+# produces.
+target/
+
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+.git/
+.gitignore
+.gitattributes
+.DS_Store
+
+Dockerfile
+.dockerignore
+compose.yaml
+docker-compose.yml
+docs/
+HELP.md

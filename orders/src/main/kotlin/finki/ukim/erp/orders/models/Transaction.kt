@@ -2,22 +2,26 @@ package finki.ukim.erp.orders
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.Id
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
-import java.math.BigDecimal
+import org.hibernate.annotations.Type
 import java.time.LocalDateTime
 
+/**
+ * Money moving for an order. Reversals are rows too, with a negative [amount] - nothing is ever
+ * deleted or edited, so a payment and its refund still both show on the order and net to zero.
+ */
 @Entity
 open class Transaction(
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    open var id: Long? = null,
+    // An identifier cannot go through an AttributeConverter; see StringIdentifierUserType.
+    @Type(TransactionIdType::class)
+    @Column(name = "id", nullable = false)
+    open var id: TransactionId = TransactionId(),
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_type", nullable = false)
@@ -31,13 +35,9 @@ open class Transaction(
     open var order: Order? = null,
 
     @Column(name = "amount", nullable = false, precision = 19, scale = 2)
-    open var amount: BigDecimal = BigDecimal.ZERO
-) {
-    protected constructor() : this(
-        id = null,
-        paymentType = PaymentType.CARD,
-        date = LocalDateTime.now(),
-        order = null,
-        amount = BigDecimal.ZERO
-    )
+    open var amount: Money = Money.ZERO
+) : LabeledEntity {
+    protected constructor() : this(id = TransactionId())
+
+    override fun label(): String = "$paymentType $amount"
 }
