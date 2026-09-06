@@ -23,7 +23,7 @@ class DtoValidationTest {
 
     @Test
     fun `CreateOrderRequest is valid with a blank name`() {
-        val request = CreateOrderRequest(name = "", surname = "Doe", items = listOf(OrderItemRequest(1L, 1)))
+        val request = CreateOrderRequest(name = "", surname = "Doe", items = listOf(OrderItemRequest("product-1", 1)))
         assertTrue(validator.validate(request).isNotEmpty())
     }
 
@@ -35,19 +35,20 @@ class DtoValidationTest {
 
     @Test
     fun `CreateOrderRequest is valid when all fields are populated correctly`() {
-        val request = CreateOrderRequest(name = "John", surname = "Doe", items = listOf(OrderItemRequest(1L, 1)))
+        val request = CreateOrderRequest(name = "John", surname = "Doe", items = listOf(OrderItemRequest("product-1", 1)))
         assertEquals(0, validator.validate(request).size)
     }
 
     @Test
     fun `OrderItemRequest rejects a zero or negative quantity`() {
-        assertTrue(validator.validate(OrderItemRequest(1L, 0)).isNotEmpty())
-        assertTrue(validator.validate(OrderItemRequest(1L, -3)).isNotEmpty())
+        assertTrue(validator.validate(OrderItemRequest("product-1", 0)).isNotEmpty())
+        assertTrue(validator.validate(OrderItemRequest("product-1", -3)).isNotEmpty())
     }
 
     @Test
-    fun `OrderItemRequest rejects a non-positive productId`() {
-        assertTrue(validator.validate(OrderItemRequest(0L, 1)).isNotEmpty())
+    fun `OrderItemRequest rejects a blank productId`() {
+        assertTrue(validator.validate(OrderItemRequest("", 1)).isNotEmpty())
+        assertTrue(validator.validate(OrderItemRequest("   ", 1)).isNotEmpty())
     }
 
     @Test
@@ -79,7 +80,7 @@ class DtoValidationTest {
     @Test
     fun `InvoiceLineItemRequest rejects a negative price`() {
         assertTrue(
-            validator.validate(InvoiceLineItemRequest(inventoryItemId = 1L, quantity = 1, price = BigDecimal("-1.00")))
+            validator.validate(InvoiceLineItemRequest(inventoryItemId = "product-1", quantity = 1, price = BigDecimal("-1.00")))
                 .isNotEmpty()
         )
     }

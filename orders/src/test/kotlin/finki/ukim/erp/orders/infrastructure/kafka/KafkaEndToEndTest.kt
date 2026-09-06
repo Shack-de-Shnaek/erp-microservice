@@ -2,6 +2,7 @@ package finki.ukim.erp.orders.infrastructure.kafka
 
 import finki.ukim.erp.orders.OrderStatus
 import finki.ukim.erp.orders.dto.OrderItemRequest
+import finki.ukim.erp.orders.events.ORDER_NULLIFIED_TOPIC
 import finki.ukim.erp.orders.services.OrderCommandService
 import finki.ukim.erp.orders.services.OrderViewReadService
 import org.apache.kafka.clients.consumer.ConsumerConfig
@@ -100,32 +101,56 @@ class KafkaEndToEndTest {
             name = "John",
             surname = "Doe",
             customerId = "customer-e2e",
-            items = listOf(OrderItemRequest(productId = 1L, quantity = 2))
+            items = listOf(OrderItemRequest(productId = "product-1", quantity = 2))
         )
         orderCommandService.approveOrder(order.id)
 
         val published = awaitMessage("order.approved", Duration.ofSeconds(20)) { it.contains(order.id.value) }
 
         assertTrue(published != null, "nothing arrived on order.approved for ${order.id}")
-        assertTrue(published!!.contains("\"productId\":1"), published)
+        assertTrue(published!!.contains("\"productId\":\"product-1\""), published)
         assertTrue(published.contains("\"quantity\":2"), published)
         // The customer never leaves the service.
         assertTrue(!published.contains("customer-e2e"), published)
         assertTrue(!published.contains("John"), published)
     }
 
+    /**
+     * The topic a consumer holding stock for an order actually reads. Driven through a cancellation
+     * because that is the ending that also publishes `order.cancelled` - so this proves the
+     * nullification is a message of its own on its own topic, not the cancellation renamed.
+     */
     @Test
-    fun `a product discontinued elsewhere rejects the pending orders waiting on it`() {
+    fun `cancelling an order publishes it on order-nullified so holds elsewhere can be released`() {
+        val order = orderCommandService.createOrder(
+            name = "John",
+            surname = "Doe",
+            customerId = "customer-e2e",
+            items = listOf(OrderItemRequest(productId = "product-1", quantity = 2))
+        )
+        orderCommandService.approveOrder(order.id)
+        orderCommandService.cancelOrder(order.id, "customer-e2e")
+
+        val published = awaitMessage(ORDER_NULLIFIED_TOPIC, Duration.ofSeconds(20)) { it.contains(order.id.value) }
+
+        assertTrue(published != null, "nothing arrived on $ORDER_NULLIFIED_TOPIC for ${order.id}")
+        assertTrue(published!!.contains("\"reason\":\"CANCELLED\""), published)
+        // The refund amount is between us and the customer; it does not go on a public topic.
+        assertTrue(!published.contains("refundedAmount"), published)
+    }
+
+    @Test
+    fun `a product deactivated elsewhere rejects the pending orders waiting on it`() {
         val order = orderCommandService.createOrder(
             name = "Jane",
             surname = "Roe",
             customerId = "customer-e2e",
-            items = listOf(OrderItemRequest(productId = 4L, quantity = 1))
+            items = listOf(OrderItemRequest(productId = "product-4", quantity = 1))
         )
 
         publish(
-            KafkaEventConsumer.PRODUCT_DISCONTINUED_TOPIC,
-            """{"_eventType":"ProductDiscontinuedEvent","productId":{"value":4},"name":"Standing desk"}"""
+            KafkaEventConsumer.PRODUCT_DEACTIVATED_TOPIC,
+            """{"productId":"product-4","name":"Standing desk"}"""
         )
 
         val deadline = System.currentTimeMillis() + 30_000

@@ -1,7 +1,6 @@
 package finki.ukim.erp.orders.clients
 
 import au.com.dius.pact.consumer.MockServer
-import au.com.dius.pact.consumer.dsl.LambdaDsl.newJsonArray
 import au.com.dius.pact.consumer.dsl.LambdaDsl.newJsonBody
 import au.com.dius.pact.consumer.dsl.PactDslWithProvider
 import au.com.dius.pact.consumer.junit5.PactConsumerTestExt
@@ -23,131 +22,157 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.cloud.openfeign.support.SpringMvcContract
-import java.math.BigDecimal
 
 /**
- * Consumer-driven contract for the orders -> inventory call.
+ * Consumer-driven contract for the orders -> inventory calls.
  *
  * These tests exercise the *real* [InventoryClient] and [FeignInventoryCatalog] against Pact's
  * mock provider, so what gets written to `target/pacts/orders-inventory.json` is exactly what this
  * service will send and expects back. The inventory service then verifies itself against that
- * file; if it ever changes the shape of `/products/{id}` or `/products?ids=`, its build breaks
+ * file; if it ever changes the shape of `/api/products/{id}` or `/api/stock/{id}`, its build breaks
  * rather than ours at runtime.
  *
- * The `given(...)` clauses are provider states - inventory has to set that data up before
- * replaying the interaction.
+ * ## Why there are two calls for one question
+ *
+ * Inventory does not have a resource that answers "what is this product and how much of it can I
+ * have". The catalogue and the stock ledger are separate resources with separate lifecycles, which
+ * is a reasonable thing for that service to do and not something orders should ask it to undo. So
+ * the contract is two interactions per product, and the anti-corruption layer puts them back
+ * together - which is also why the identifiers in these paths are opaque strings rather than
+ * numbers. They are inventory's, and orders only carries them.
+ *
+ * The `given(...)` clauses are provider states, and they are worded exactly as inventory's
+ * `PactHttpProviderTest` implements them - a state whose name does not match is a state the
+ * provider silently never sets up.
  */
 @ExtendWith(PactConsumerTestExt::class)
 @PactTestFor(providerName = "inventory")
 class InventoryClientPactTest {
 
-    @Pact(consumer = "orders")
-    fun productInStock(builder: PactDslWithProvider): V4Pact = builder
-        .given("product 1 exists and has 100 in stock")
-        .uponReceiving("a request for product 1")
-        .path("/products/1")
-        .method("GET")
-        .willRespondWith()
-        .status(200)
-        .headers(mapOf("Content-Type" to "application/json"))
-        .body(
-            newJsonBody { product ->
-                product.numberValue("id", 1)
-                product.stringType("name", "Desk lamp")
-                product.decimalType("price", 19.99)
-                product.numberType("availableQuantity", 100)
-            }.build()
-        )
-        .toPact(V4Pact::class.java)
+    private val productId = ProductId("11111111-1111-1111-1111-111111111111")
+    private val fullyReservedProductId = ProductId("33333333-3333-3333-3333-333333333333")
+    private val unknownProductId = ProductId("99999999-9999-9999-9999-999999999999")
 
     @Pact(consumer = "orders")
-    fun productOutOfStock(builder: PactDslWithProvider): V4Pact = builder
-        .given("product 3 exists and is out of stock")
-        .uponReceiving("a request for product 3")
-        .path("/products/3")
+    fun productExists(builder: PactDslWithProvider): V4Pact = builder
+        .given("a product with id exists")
+        .uponReceiving("get a product by id")
+        .path("/api/products/${productId.value}")
         .method("GET")
         .willRespondWith()
         .status(200)
         .headers(mapOf("Content-Type" to "application/json"))
         .body(
             newJsonBody { product ->
-                product.numberValue("id", 3)
-                product.stringType("name", "Notebook")
-                product.decimalType("price", 5.00)
-                product.numberValue("availableQuantity", 0)
+                product.stringValue("productId", productId.value)
+                product.stringType("sku", "SKU-001")
+                product.stringType("name", "Widget")
+                product.stringType("unitOfMeasure", "pcs")
+                product.stringType("status", "ACTIVE")
             }.build()
         )
         .toPact(V4Pact::class.java)
 
     /**
-     * The second endpoint in the contract: one request covering every line of an order. Inventory
-     * has to answer with an array, and has to answer for the ids it knows rather than failing the
-     * whole request because one of them is unknown.
+     * `onHand` and `reserved` are both required, because what orders may promise a customer is the
+     * difference. A contract that only pinned `onHand` would let inventory keep passing while
+     * orders oversold everything already committed to somebody else.
      */
     @Pact(consumer = "orders")
-    fun severalProducts(builder: PactDslWithProvider): V4Pact = builder
-        .given("products 1 and 2 exist and are in stock")
-        .uponReceiving("a request for products 1 and 2 at once")
-        .path("/products")
+    fun stockExists(builder: PactDslWithProvider): V4Pact = builder
+        .given("a stock item for the product exists")
+        .uponReceiving("get stock item by product id")
+        .path("/api/stock/${productId.value}")
         .method("GET")
-        .matchQuery("ids", "\\d+", listOf("1", "2"))
         .willRespondWith()
         .status(200)
         .headers(mapOf("Content-Type" to "application/json"))
         .body(
-            newJsonArray { array ->
-                array.`object` { product ->
-                    product.numberValue("id", 1)
-                    product.stringType("name", "Desk lamp")
-                    product.decimalType("price", 19.99)
-                    product.numberType("availableQuantity", 100)
-                }
-                array.`object` { product ->
-                    product.numberValue("id", 2)
-                    product.stringType("name", "Office chair")
-                    product.decimalType("price", 49.50)
-                    product.numberType("availableQuantity", 25)
-                }
+            newJsonBody { stock ->
+                stock.stringType("stockItemId", "22222222-2222-2222-2222-222222222222")
+                stock.stringValue("productId", productId.value)
+                stock.numberType("onHand", 100)
+                stock.numberType("reserved", 0)
+                stock.numberType("reorderThreshold", 10)
+            }.build()
+        )
+        .toPact(V4Pact::class.java)
+
+    @Pact(consumer = "orders")
+    fun productFullyReserved(builder: PactDslWithProvider): V4Pact = builder
+        .given("a product whose stock is entirely reserved exists")
+        .uponReceiving("get a fully reserved product by id")
+        .path("/api/products/${fullyReservedProductId.value}")
+        .method("GET")
+        .willRespondWith()
+        .status(200)
+        .headers(mapOf("Content-Type" to "application/json"))
+        .body(
+            newJsonBody { product ->
+                product.stringValue("productId", fullyReservedProductId.value)
+                product.stringType("sku", "SKU-003")
+                product.stringType("name", "Notebook")
+                product.stringType("unitOfMeasure", "pcs")
+                product.stringType("status", "ACTIVE")
+            }.build()
+        )
+        .toPact(V4Pact::class.java)
+
+    @Pact(consumer = "orders")
+    fun stockFullyReserved(builder: PactDslWithProvider): V4Pact = builder
+        .given("a product whose stock is entirely reserved exists")
+        .uponReceiving("get stock for a fully reserved product")
+        .path("/api/stock/${fullyReservedProductId.value}")
+        .method("GET")
+        .willRespondWith()
+        .status(200)
+        .headers(mapOf("Content-Type" to "application/json"))
+        .body(
+            newJsonBody { stock ->
+                stock.stringType("stockItemId", "44444444-4444-4444-4444-444444444444")
+                stock.stringValue("productId", fullyReservedProductId.value)
+                stock.numberValue("onHand", 8)
+                stock.numberValue("reserved", 8)
+                stock.numberType("reorderThreshold", 10)
             }.build()
         )
         .toPact(V4Pact::class.java)
 
     @Pact(consumer = "orders")
     fun unknownProduct(builder: PactDslWithProvider): V4Pact = builder
-        .given("product 999 does not exist")
-        .uponReceiving("a request for a product that does not exist")
-        .path("/products/999")
+        .given("no product with that id exists")
+        .uponReceiving("get a product that does not exist")
+        .path("/api/products/${unknownProductId.value}")
         .method("GET")
         .willRespondWith()
         .status(404)
         .toPact(V4Pact::class.java)
 
     @Test
-    @PactTestFor(pactMethod = "productInStock")
-    fun `a product in stock can be priced and ordered`(mockServer: MockServer) {
-        val product = catalogAgainst(mockServer).requireAvailable(productId = ProductId(1L), quantity = Quantity(5))
+    @PactTestFor(pactMethod = "productExists")
+    fun `a product's catalogue entry is read into the domain's own type`(mockServer: MockServer) {
+        val product = clientAgainst(mockServer).getProduct(productId.value)
 
-        assertEquals(1L, product.id)
-        assertEquals(BigDecimal("19.99"), product.price)
-        assertEquals(100, product.availableQuantity)
+        assertEquals(productId.value, product.productId)
+        assertEquals("Widget", product.name)
     }
 
     @Test
-    @PactTestFor(pactMethod = "productOutOfStock")
-    fun `a product with no stock is rejected`(mockServer: MockServer) {
+    @PactTestFor(pactMethod = "stockExists")
+    fun `availability is what is on hand less what is already reserved`(mockServer: MockServer) {
+        val stock = clientAgainst(mockServer).getStock(productId.value)
+
+        assertEquals(100, stock.available)
+    }
+
+    @Test
+    @PactTestFor(pactMethods = ["productFullyReserved", "stockFullyReserved"])
+    fun `a product whose stock is all spoken for cannot be ordered`(mockServer: MockServer) {
         val catalog = catalogAgainst(mockServer)
 
-        assertThrows(InsufficientStockException::class.java) { catalog.requireAvailable(productId = ProductId(3L), quantity = Quantity(1)) }
-    }
-
-    @Test
-    @PactTestFor(pactMethod = "severalProducts")
-    fun `a whole order's products are checked in one request`(mockServer: MockServer) {
-        val products = catalogAgainst(mockServer).findProducts(listOf(ProductId(1L), ProductId(2L)))
-
-        assertEquals(setOf(ProductId(1L), ProductId(2L)), products.keys)
-        // compareTo, not equals: what matters is the amount, not whether the provider wrote 49.50 or 49.5.
-        assertEquals(0, BigDecimal("49.50").compareTo(products[ProductId(2L)]?.price))
+        assertThrows(InsufficientStockException::class.java) {
+            catalog.requireAvailable(fullyReservedProductId, Quantity(1))
+        }
     }
 
     @Test
@@ -155,22 +180,25 @@ class InventoryClientPactTest {
     fun `a 404 means the product does not exist, not that inventory is broken`(mockServer: MockServer) {
         val catalog = catalogAgainst(mockServer)
 
-        assertNull(catalog.findProduct(ProductId(999L)))
-        assertThrows(ProductNotFoundException::class.java) { catalog.requireProduct(ProductId(999L)) }
+        assertNull(catalog.findProduct(unknownProductId))
+        assertThrows(ProductNotFoundException::class.java) { catalog.requireProduct(unknownProductId) }
     }
 
     /**
-     * The production client gets its base path from `@FeignClient(path = "/products")`, which
-     * Spring Cloud applies when it builds the target - not something [SpringMvcContract] reads.
-     * Building the target by hand here means repeating it.
+     * The production client is built by Spring Cloud from the `@FeignClient` annotation and
+     * addressed through Consul. Building it by hand here points the same interface, with the same
+     * contract reader, at the Pact mock server instead - so the paths and the deserialization under
+     * test are production's, and only the host is the test's.
      */
-    private fun catalogAgainst(mockServer: MockServer): InventoryCatalog {
+    private fun clientAgainst(mockServer: MockServer): InventoryClient {
         val objectMapper = ObjectMapper().registerKotlinModule()
-        val client = Feign.builder()
+        return Feign.builder()
             .contract(SpringMvcContract())
             .encoder(JacksonEncoder(objectMapper))
             .decoder(JacksonDecoder(objectMapper))
-            .target(InventoryClient::class.java, "${mockServer.getUrl()}/products")
-        return FeignInventoryCatalog(client)
+            .target(InventoryClient::class.java, mockServer.getUrl())
     }
+
+    private fun catalogAgainst(mockServer: MockServer): InventoryCatalog =
+        FeignInventoryCatalog(clientAgainst(mockServer))
 }

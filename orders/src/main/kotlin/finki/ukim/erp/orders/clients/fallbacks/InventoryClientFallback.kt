@@ -2,7 +2,8 @@ package finki.ukim.erp.orders.clients.fallbacks
 
 import feign.FeignException
 import finki.ukim.erp.orders.clients.InventoryClient
-import finki.ukim.erp.orders.clients.InventoryProduct
+import finki.ukim.erp.orders.clients.InventoryProductResponse
+import finki.ukim.erp.orders.clients.InventoryStockResponse
 import finki.ukim.erp.orders.exceptions.InventoryUnavailableException
 import org.slf4j.LoggerFactory
 import org.springframework.cloud.openfeign.FallbackFactory
@@ -36,9 +37,9 @@ import org.springframework.stereotype.Component
  */
 class InventoryClientFallback(private val cause: Throwable) : InventoryClient {
 
-    override fun getProduct(productId: Long): InventoryProduct = throw translated()
+    override fun getProduct(productId: String): InventoryProductResponse = throw translated()
 
-    override fun getProducts(ids: List<Long>): List<InventoryProduct> = throw translated()
+    override fun getStock(productId: String): InventoryStockResponse = throw translated()
 
     private fun translated(): RuntimeException = when (cause) {
         // Inventory answered, and its answer was "no such product". Let it through untouched so

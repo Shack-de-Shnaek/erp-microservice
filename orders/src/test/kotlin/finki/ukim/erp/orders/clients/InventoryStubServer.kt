@@ -15,7 +15,9 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * refused connection is turned into the right domain exception, whether the breaker opens. A mock
  * of the Feign interface would skip all of it.
  *
- * Speaks the contract agreed with that team - the same one `InventoryClientPactTest` publishes.
+ * Speaks the contract agreed with that team - the same one `InventoryClientPactTest` publishes:
+ * `GET /api/products/{id}` and `GET /api/stock/{id}`, with the ids left opaque, because that is
+ * what inventory's identifiers are.
  */
 class InventoryStubServer(port: Int = 0) {
 
@@ -28,7 +30,10 @@ class InventoryStubServer(port: Int = 0) {
 
     private fun start(port: Int): HttpServer =
         HttpServer.create(InetSocketAddress("127.0.0.1", port), 0).apply {
-            createContext("/products") { exchange -> handle(exchange) }
+            // Inventory's real prefixes. What a product *is* and how much of it there is are two
+            // different resources over there, and orders needs both to answer one question.
+            createContext("/api/products") { exchange -> handleProduct(exchange) }
+            createContext("/api/stock") { exchange -> handleStock(exchange) }
             executor = null
             start()
         }
@@ -41,30 +46,35 @@ class InventoryStubServer(port: Int = 0) {
         server = start(port)
     }
 
-    private fun handle(exchange: HttpExchange) {
+    private fun handleProduct(exchange: HttpExchange) = handle(exchange, "/api/products") { id ->
+        respond(exchange, 200, productBody(id))
+    }
+
+    private fun handleStock(exchange: HttpExchange) = handle(exchange, "/api/stock") { id ->
+        respond(exchange, 200, stockBody(id))
+    }
+
+    private fun handle(exchange: HttpExchange, prefix: String, found: (String) -> Unit) {
         exchange.requestHeaders.getFirst(CorrelationId.HEADER)?.let { receivedCorrelationIds.add(it) }
 
-        val path = exchange.requestURI.path.removePrefix("/products").trim('/')
-        when {
-            path.isEmpty() -> respond(exchange, 200, batchBody(idsFrom(exchange.requestURI.query)))
-            path == UNKNOWN_PRODUCT_ID.toString() -> respond(exchange, 404, """{"error":"no such product"}""")
-            path == BROKEN_PRODUCT_ID.toString() -> respond(exchange, 500, """{"error":"boom"}""")
-            else -> respond(exchange, 200, productBody(path.toLong()))
+        when (val id = exchange.requestURI.path.removePrefix(prefix).trim('/')) {
+            UNKNOWN_PRODUCT_ID -> respond(exchange, 404, """{"error":"no such product"}""")
+            BROKEN_PRODUCT_ID -> respond(exchange, 500, """{"error":"boom"}""")
+            else -> found(id)
         }
     }
 
-    private fun idsFrom(query: String?): List<Long> =
-        query.orEmpty().split('&')
-            .filter { it.startsWith("ids=") }
-            .flatMap { it.removePrefix("ids=").split("%2C", ",") }
-            .filter { it.isNotBlank() }
-            .map { it.toLong() }
-            .filter { it != UNKNOWN_PRODUCT_ID }
+    private fun productBody(id: String) =
+        """{"productId":"$id","sku":"SKU-$id","name":"Desk lamp","unitOfMeasure":"piece","status":"ACTIVE"}"""
 
-    private fun productBody(id: Long) =
-        """{"id":$id,"name":"Desk lamp","price":19.99,"availableQuantity":$AVAILABLE_QUANTITY}"""
-
-    private fun batchBody(ids: List<Long>) = ids.joinToString(prefix = "[", postfix = "]") { productBody(it) }
+    /**
+     * On hand minus reserved is what orders may still promise, so the stub keeps them apart rather
+     * than answering with one number - a client that read `onHand` and called it availability would
+     * pass against a single-number stub and oversell against the real service.
+     */
+    private fun stockBody(id: String) =
+        """{"stockItemId":"stock-$id","productId":"$id","onHand":${AVAILABLE_QUANTITY + RESERVED_QUANTITY},""" +
+            """"reserved":$RESERVED_QUANTITY,"reorderThreshold":5}"""
 
     private fun respond(exchange: HttpExchange, status: Int, body: String) {
         val bytes = body.toByteArray(StandardCharsets.UTF_8)
@@ -74,8 +84,11 @@ class InventoryStubServer(port: Int = 0) {
     }
 
     companion object {
-        const val UNKNOWN_PRODUCT_ID = 999L
-        const val BROKEN_PRODUCT_ID = 500L
+        const val UNKNOWN_PRODUCT_ID = "no-such-product"
+        const val BROKEN_PRODUCT_ID = "product-that-breaks-inventory"
+
+        /** What the stub leaves free: `onHand` is this plus [RESERVED_QUANTITY]. */
         const val AVAILABLE_QUANTITY = 100
+        const val RESERVED_QUANTITY = 20
     }
 }

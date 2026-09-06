@@ -1,0 +1,336 @@
+{
+  "consumer": {
+    "name": "orders"
+  },
+  "interactions": [
+    {
+      "comments": {
+        "testname": "finki.ukim.erp.orders.pact.ProductDeactivatedListenerTest.a deactivated product from inventory reaches the domain as a product id(List)"
+      },
+      "contents": {
+        "content": {
+          "productId": "11111111-1111-1111-1111-111111111111"
+        },
+        "contentType": "application/json",
+        "encoded": false
+      },
+      "description": "Product Deactivated",
+      "key": "525f3966",
+      "matchingRules": {
+        "body": {
+          "$.productId": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "contentType": "application/json"
+      },
+      "pending": false,
+      "type": "Asynchronous/Messages"
+    },
+    {
+      "description": "get a fully reserved product by id",
+      "key": "a58affb0",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a product whose stock is entirely reserved exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/products/33333333-3333-3333-3333-333333333333"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "name": "Notebook",
+            "productId": "33333333-3333-3333-3333-333333333333",
+            "sku": "SKU-003",
+            "status": "ACTIVE",
+            "unitOfMeasure": "pcs"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.sku": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.unitOfMeasure": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "get stock for a fully reserved product",
+      "key": "9098af2f",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a product whose stock is entirely reserved exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/stock/33333333-3333-3333-3333-333333333333"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "onHand": 8,
+            "productId": "33333333-3333-3333-3333-333333333333",
+            "reorderThreshold": 10,
+            "reserved": 8,
+            "stockItemId": "44444444-4444-4444-4444-444444444444"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.reorderThreshold": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.stockItemId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "get a product by id",
+      "key": "2d550087",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a product with id exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/products/11111111-1111-1111-1111-111111111111"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "name": "Widget",
+            "productId": "11111111-1111-1111-1111-111111111111",
+            "sku": "SKU-001",
+            "status": "ACTIVE",
+            "unitOfMeasure": "pcs"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.sku": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.unitOfMeasure": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "get stock item by product id",
+      "key": "da9447cd",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "a stock item for the product exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/stock/11111111-1111-1111-1111-111111111111"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "onHand": 100,
+            "productId": "11111111-1111-1111-1111-111111111111",
+            "reorderThreshold": 10,
+            "reserved": 0,
+            "stockItemId": "22222222-2222-2222-2222-222222222222"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.onHand": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.reorderThreshold": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.reserved": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.stockItemId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "get a product that does not exist",
+      "key": "69b9a534",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "no product with that id exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/products/99999999-9999-9999-9999-999999999999"
+      },
+      "response": {
+        "status": 404
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pact-jvm": {
+      "version": "4.7.5"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "inventory"
+  }
+}

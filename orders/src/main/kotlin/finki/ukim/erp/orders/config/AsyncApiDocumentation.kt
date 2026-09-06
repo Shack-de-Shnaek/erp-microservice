@@ -11,8 +11,10 @@ import finki.ukim.erp.orders.events.OrderCancelledEvent
 import finki.ukim.erp.orders.events.OrderCancelledExternalEvent
 import finki.ukim.erp.orders.events.OrderCreatedEvent
 import finki.ukim.erp.orders.events.OrderCreatedExternalEvent
+import finki.ukim.erp.orders.events.OrderNullifiedExternalEvent
+import finki.ukim.erp.orders.events.ORDER_NULLIFIED_TOPIC
 import finki.ukim.erp.orders.infrastructure.kafka.KafkaEventConsumer
-import finki.ukim.erp.orders.infrastructure.kafka.ProductDiscontinuedExternalEventDTO
+import finki.ukim.erp.orders.infrastructure.kafka.ProductDeactivatedExternalEventDTO
 import io.github.springwolf.asyncapi.v3.model.AsyncAPI
 import io.github.springwolf.asyncapi.v3.model.channel.ChannelObject
 import io.github.springwolf.asyncapi.v3.model.channel.ChannelReference
@@ -75,6 +77,21 @@ class AsyncApiDocumentation : AsyncApiCustomizer {
         val channels = LinkedHashMap(asyncAPI.channels.orEmpty())
         val operations = LinkedHashMap(asyncAPI.operations.orEmpty())
 
+        // Nullification is the one topic not named after an event class: three different events end
+        // an order, and all three say so here. Declared on its own for that reason.
+        val nullifiedMessage = messageFor(
+            OrderNullifiedExternalEvent::class.java.simpleName,
+            "An order is void - cancelled, rejected or refunded. Release anything held for it."
+        )
+        val nullifiedChannel = channelFor(ORDER_NULLIFIED_TOPIC, nullifiedMessage)
+        channels[ORDER_NULLIFIED_TOPIC] = nullifiedChannel
+        operations["$ORDER_NULLIFIED_TOPIC.publish"] = Operation.builder()
+            .action(OperationAction.SEND)
+            .channel(ChannelReference.fromChannel(nullifiedChannel))
+            .title("$ORDER_NULLIFIED_TOPIC.publish")
+            .description("Published on cancellation, rejection and invoice reversal alike.")
+            .build()
+
         published.forEach { publication ->
             val topic = AbstractEvent.topicFor(publication.internalEvent.simpleName)
             val message = messageFor(publication.externalEvent.simpleName, publication.description)
@@ -91,9 +108,9 @@ class AsyncApiDocumentation : AsyncApiCustomizer {
 
         // The one topic this service reads. Its shape is owned by the inventory service; what is
         // documented here is what orders understands of it, which is what its DTOs accept.
-        val consumedTopic = KafkaEventConsumer.PRODUCT_DISCONTINUED_TOPIC
+        val consumedTopic = KafkaEventConsumer.PRODUCT_DEACTIVATED_TOPIC
         val consumedMessage = messageFor(
-            ProductDiscontinuedExternalEventDTO::class.java.simpleName,
+            ProductDeactivatedExternalEventDTO::class.java.simpleName,
             "Published by the inventory service when a product is withdrawn. Pending orders for it are rejected."
         )
         val consumedChannel = channelFor(consumedTopic, consumedMessage)

@@ -21,15 +21,15 @@ class InventoryClientFallbackTest {
     fun `a connection failure becomes an outage`() {
         val fallback = InventoryClientFallbackFactory().create(IOException("connection refused"))
 
-        assertThrows(InventoryUnavailableException::class.java) { fallback.getProduct(1L) }
-        assertThrows(InventoryUnavailableException::class.java) { fallback.getProducts(listOf(1L)) }
+        assertThrows(InventoryUnavailableException::class.java) { fallback.getProduct("product-1") }
+        assertThrows(InventoryUnavailableException::class.java) { fallback.getStock("product-1") }
     }
 
     @Test
     fun `a 500 becomes an outage`() {
         val fallback = InventoryClientFallbackFactory().create(feignException(500))
 
-        assertThrows(InventoryUnavailableException::class.java) { fallback.getProduct(1L) }
+        assertThrows(InventoryUnavailableException::class.java) { fallback.getProduct("product-1") }
     }
 
     @Test
@@ -37,12 +37,12 @@ class InventoryClientFallbackTest {
         val notFound = feignException(404)
         val fallback = InventoryClientFallbackFactory().create(notFound)
 
-        val thrown = assertThrows(FeignException.NotFound::class.java) { fallback.getProduct(999L) }
+        val thrown = assertThrows(FeignException.NotFound::class.java) { fallback.getProduct("no-such-product") }
         assertSame(notFound, thrown)
     }
 
     private fun feignException(status: Int): FeignException = FeignException.errorStatus(
-        "InventoryClient#getProduct(Long)",
+        "InventoryClient#getProduct(String)",
         feign.Response.builder()
             .status(status)
             .reason("test")

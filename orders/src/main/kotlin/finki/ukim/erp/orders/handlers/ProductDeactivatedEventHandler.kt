@@ -28,7 +28,7 @@ import org.springframework.stereotype.Component
  * overruling a decision the aggregate already made.
  */
 @Component
-class ProductDiscontinuedEventHandler(
+class ProductDeactivatedEventHandler(
     private val commandGateway: CommandGateway,
     private val orderViewReadService: OrderViewReadService
 ) {
@@ -44,7 +44,7 @@ class ProductDiscontinuedEventHandler(
             return
         }
 
-        logger.info("Product {} was discontinued; rejecting {} pending order(s)", productId, affected.size)
+        logger.info("Product {} was deactivated; rejecting {} pending order(s)", productId, affected.size)
         affected.forEach { order ->
             // sendAndWait, not send: each rejection has to have actually happened before the next
             // is dispatched. With fire-and-forget the consumer would return having only queued the

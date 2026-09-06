@@ -24,8 +24,8 @@ import org.springframework.kafka.config.TopicBuilder
 class KafkaTopicsConfig {
 
     @Bean
-    fun productDiscontinuedTopic(): NewTopic =
-        TopicBuilder.name(KafkaEventConsumer.PRODUCT_DISCONTINUED_TOPIC)
+    fun productDeactivatedTopic(): NewTopic =
+        TopicBuilder.name(KafkaEventConsumer.PRODUCT_DEACTIVATED_TOPIC)
             .partitions(1)
             .replicas(1)
             .build()

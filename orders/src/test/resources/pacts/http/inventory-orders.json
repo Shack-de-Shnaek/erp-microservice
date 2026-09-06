@@ -1,0 +1,114 @@
+{
+  "consumer": {
+    "name": "inventory"
+  },
+  "provider": {
+    "name": "orders"
+  },
+  "interactions": [
+    {
+      "description": "a request for an approved order",
+      "providerStates": [
+        {
+          "name": "order Order:9f1c0a4e-2f6b-4d1e-9c33-7a5b2e8d10f4 is approved and has two lines"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/orders/Order:9f1c0a4e-2f6b-4d1e-9c33-7a5b2e8d10f4"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "id": "Order:9f1c0a4e-2f6b-4d1e-9c33-7a5b2e8d10f4",
+          "status": "APPROVED",
+          "items": [
+            {
+              "productId": "11111111-1111-1111-1111-111111111111",
+              "quantity": 5,
+              "price": 19.99
+            }
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.id": {
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "Order:[0-9a-f-]+"
+                }
+              ],
+              "combine": "AND"
+            },
+            "$.status": {
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "PENDING|APPROVED|REJECTED|CANCELLED"
+                }
+              ],
+              "combine": "AND"
+            },
+            "$.items": {
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ],
+              "combine": "AND"
+            },
+            "$.items[*].productId": {
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ],
+              "combine": "AND"
+            },
+            "$.items[*].quantity": {
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ],
+              "combine": "AND"
+            },
+            "$.items[*].price": {
+              "matchers": [
+                {
+                  "match": "decimal"
+                }
+              ],
+              "combine": "AND"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "a request for an order that does not exist",
+      "providerStates": [
+        {
+          "name": "no order with id Order:00000000-0000-0000-0000-000000000000 has been placed"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/orders/Order:00000000-0000-0000-0000-000000000000"
+      },
+      "response": {
+        "status": 404
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  }
+}

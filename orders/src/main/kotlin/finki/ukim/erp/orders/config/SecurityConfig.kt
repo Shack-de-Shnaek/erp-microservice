@@ -2,6 +2,7 @@ package finki.ukim.erp.orders.config
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Profile
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.invoke
@@ -17,8 +18,19 @@ import org.springframework.security.web.SecurityFilterChain
  * (which owns the OAuth2 login/client flow against Keycloak); this service only validates the
  * incoming Bearer JWT and derives authorities from the Keycloak realm roles claim
  * (`realm_access.roles`), e.g. "ADMIN" / "CLIENT" -> ROLE_ADMIN / ROLE_CLIENT.
+ *
+ * Not active under the `test` profile. A Pact provider test replays a contract's requests with no
+ * bearer token - it is verifying the shape of what this service answers, not the authentication in
+ * front of it - so every interaction would come back 401 and a contract that is actually being
+ * honoured would look broken. The permissive chain that stands in is
+ * [finki.ukim.erp.orders.config.TestSecurityConfig], which lives in the test sources and so cannot
+ * be switched on by a deployment however the profiles are set.
+ *
+ * Note where the exclusion is *not*: nothing in application.yaml is relaxed, and every other test
+ * in the suite runs under the default profile with this chain in place.
  */
 @Configuration
+@Profile("!test")
 @EnableMethodSecurity
 class SecurityConfig {
 

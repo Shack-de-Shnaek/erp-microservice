@@ -72,3 +72,49 @@ data class InvoiceReversedExternalEvent(
     val refundedAmount: Money,
     val reversedAt: LocalDateTime
 )
+
+/**
+ * The topic every nullification lands on.
+ *
+ * A constant rather than a derivation from a class name, because there is no `OrderNullifiedEvent`
+ * to derive it from - nullification is not something that happens to an order, it is what three
+ * different things that happen to an order all mean. The name still follows the same convention
+ * everything else on the bus does.
+ */
+const val ORDER_NULLIFIED_TOPIC = "order.nullified"
+
+/** Why an order stopped being an order. */
+enum class NullificationReason {
+    /** The customer or the business called it off. */
+    CANCELLED,
+
+    /** It was never going to be fulfillable - stock ran out, or a product was withdrawn. */
+    REJECTED,
+
+    /** It was billed and then unbilled: the invoice was reversed and the money went back. */
+    REFUNDED
+}
+
+/**
+ * This order is void. Whatever you were holding for it, let it go.
+ *
+ * The single most useful event this service publishes to anyone downstream, and the reason it
+ * exists separately from `order.cancelled` / `invoice.reversed`: a consumer that reserves stock,
+ * holds a delivery slot or blocks a credit line does not care *why* an order died, only that it
+ * did. Without this it would have to subscribe to every ending an order can have, know that
+ * rejection is one of them, and be changed again the next time a new one is added. With it, there
+ * is one topic and one rule.
+ *
+ * [reason] is carried anyway, for consumers that do want to distinguish - a refund reverses
+ * something that was already fulfilled, a rejection never got that far - but nothing is required
+ * to read it. [lines] is what the order was for, where the event that produced it knew: a rejection
+ * carries none, because a rejected order never reserved anything. A consumer that keeps its own
+ * record against [orderId] should use that record rather than these lines, which is what the
+ * inventory service does.
+ */
+data class OrderNullifiedExternalEvent(
+    val orderId: OrderId,
+    val reason: NullificationReason,
+    val lines: List<OrderLine>,
+    val nullifiedAt: LocalDateTime
+)

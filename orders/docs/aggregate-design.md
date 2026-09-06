@@ -41,7 +41,7 @@ collected. A rule can only be enforced against state that changes together.
 
 **Incoming — Inventory → Orders.** Orders depends on inventory for two things: what a product costs
 when a line is added, and whether there is enough of it to go ahead. It also reacts to
-`ProductDiscontinuedEvent`: an order still waiting for approval that asks for a withdrawn product
+`ProductDeactivatedEvent`: an order still waiting for approval that asks for a withdrawn product
 can never be fulfilled, so it is rejected now rather than at approval time (Part 5).
 
 **Outgoing — Orders → Inventory.** `OrderApprovedEvent` is the point at which stock is committed to
@@ -159,7 +159,7 @@ Because they answer different questions. The command handler decides *whether th
 `on(event)` records *that it did*. An event is in the past tense — refusing it is meaningless, since
 it has already been applied and, for an event-sourced aggregate, would already be sitting in the
 store. A guard in `on(event)` would make a stored event unreplayable and would make a
-`ProductDiscontinuedEvent` reaction fail on history it cannot change. Rejecting the *command* is the
+`ProductDeactivatedEvent` reaction fail on history it cannot change. Rejecting the *command* is the
 only moment where refusing still means something: nothing has been written and the caller gets the
 error.
 
@@ -212,7 +212,7 @@ projection, not another view.
 
 ### 5.1 The trigger
 
-Inventory publishes `ProductDiscontinuedEvent` when a product is withdrawn from sale. Every order
+Inventory publishes `ProductDeactivatedEvent` when a product is withdrawn from sale. Every order
 still **pending** that has a line for that product has become unfulfillable, so orders rejects them.
 That is the same outcome they would get the moment anyone tried to approve them — the difference is
 that the customer finds out now instead of after waiting.
@@ -220,7 +220,7 @@ that the customer finds out now instead of after waiting.
 This cannot live in either aggregate. Inventory's product has no idea orders exist, and would be
 reaching across a service boundary and a database boundary to find out. An `Order` cannot notice
 something that happened in another service at all — nothing calls it. The rule belongs to neither, so
-it lives outside both, in `ProductDiscontinuedEventHandler`, which listens to one and sends commands
+it lives outside both, in `ProductDeactivatedEventHandler`, which listens to one and sends commands
 to the other.
 
 Only `PENDING` orders are touched. An approved order has already had stock committed against it, and
@@ -311,11 +311,11 @@ thing that happened. `AsyncApiDocumentation` derives the documented names from t
 |---|---|---|---|
 | `OrderCreatedEvent` | `OrderCreatedExternalEvent` on `order.created` | anything tracking demand | customer name, Keycloak subject |
 | `OrderApprovedEvent` | `OrderApprovedExternalEvent` on `order.approved` | inventory — reserve these lines | prices, customer |
-| `OrderCancelledEvent` | `OrderCancelledExternalEvent` on `order.cancelled` | inventory — release the reservation | refunded amount |
+| `OrderCancelledEvent` | `OrderCancelledExternalEvent` on `order.cancelled` **and** `OrderNullifiedExternalEvent` on `order.nullified` | inventory — release the reservation | refunded amount |
 | `InvoiceGeneratedEvent` | `InvoiceGeneratedExternalEvent` on `invoice.generated` | anything reconciling sales | **EMBG**, line-level detail |
-| `InvoiceReversedEvent` | `InvoiceReversedExternalEvent` on `invoice.reversed` | inventory — the sale is undone | — |
+| `InvoiceReversedEvent` | `InvoiceReversedExternalEvent` on `invoice.reversed` **and** `OrderNullifiedExternalEvent` on `order.nullified` | inventory — the sale is undone | — |
 | `OrderItemsUpdatedEvent` | *internal* | — | a pending order commits nothing |
-| `OrderRejectedEvent` | *internal* | — | nothing was ever committed to undo |
+| `OrderRejectedEvent` | `OrderNullifiedExternalEvent` on `order.nullified` only | inventory — close the record for this order | *why* it was refused; there is no `order.rejected` |
 | `PaymentCreatedEvent` | *internal* | — | how somebody paid is between them and us |
 | `PaymentReversedEvent` | *internal* | — | as above |
 | `InvoiceLineItemsUpdatedEvent` | *internal* | — | bookkeeping; the sale did not change |
@@ -332,13 +332,31 @@ previously carried only the order id, which is enough for this service (it can r
 database) and useless to a consumer, who would have to call back and ask what was on the order
 before it could reserve anything.
 
+### `order.nullified`
+
+Three different things end an order badly — it is cancelled, it is rejected, or its invoice is
+reversed — and a consumer that is only *holding* something on the order's behalf cares about none of
+that distinction. It needs to know the order is void so it can let go.
+
+So all three publish `OrderNullifiedExternalEvent` on `order.nullified`, carrying a `reason` for
+anyone who does want to tell them apart. A consumer subscribes to one topic and follows one rule,
+and a fourth way for an order to end does not become a change in every consumer. This is why
+`AbstractEvent.toExternalEvents()` returns a *list*: cancellation and reversal are two announcements
+each, their own topic plus the nullification, and neither replaces the other.
+
+`OrderRejectedEvent` is the one that changed character. It used to be purely internal on the
+grounds that a rejected order never committed anything — true of stock, but not of a consumer that
+opened a record the moment the order was created. It now publishes the nullification and nothing
+else: no lines, because nothing was ever reserved, and no `order.rejected` topic, because *why* this
+service refused an order is its own business.
+
 ## Layering
 
 ```
 Order (aggregate)  --apply(event)-->  Axon event bus
                                           |
                               EventMessagingEventHandler   (no Kafka imports)
-                                          |  toExternalEvent() ?: return
+                                          |  toExternalEvents(): topic + payload, 0..n
                                     EventMessagingService   (no Kafka imports)
                                           |
                                   EventMessagingRepository  (port, no Kafka imports)
@@ -352,11 +370,11 @@ a broker outage should delay delivery and catch up, not fail the command that pr
 ## Consuming: the anti-corruption layer
 
 ```
-product.discontinued  -->  KafkaEventConsumer          (JSON and Kafka; knows nothing of orders)
-                             |  ProductDiscontinuedExternalEventDTO   (our mirror of their JSON)
-                           ProductDiscontinuedTranslator (DTO in, ProductId out; no dependencies)
+product.deactivated  -->  KafkaEventConsumer          (JSON and Kafka; knows nothing of orders)
+                             |  ProductDeactivatedExternalEventDTO   (our mirror of their JSON)
+                           ProductDeactivatedTranslator (DTO in, ProductId out; no dependencies)
                              |
-                           ProductDiscontinuedEventHandler  (the decision; no Kafka in it)
+                           ProductDeactivatedEventHandler  (the decision; no Kafka in it)
                              |  commandGateway.sendAndWait
                            RejectOrderCommand --> Order
 ```
@@ -369,7 +387,7 @@ does not need is nullable, and everything it does need is not, so a message miss
 fails immediately rather than becoming a command with a hole in it.
 
 **One deviation.** The exercise's translator returns a command. This one returns a `ProductId`,
-because a discontinued product does not name the thing to change: it takes a query to find which
+because a deactivated product does not name the thing to change: it takes a query to find which
 orders are affected, and one message can produce any number of commands. Putting that lookup in the
 translator would mean giving it a repository, and it would stop being a translation. The lookup
 lives in the reaction handler, and the translator stays what it claims to be — types in, types out.
@@ -412,23 +430,23 @@ No customer name, no Keycloak subject, no prices — only what a consumer needs.
 Publishing an inventory event by hand, in the shape another team's service would send:
 
 ```
-$ echo '{"_eventType":"ProductDiscontinuedEvent","productId":{"value":4},"name":"Standing desk"}' \
+$ echo '{"_eventType":"ProductDeactivatedEvent","productId":{"value":4},"name":"Standing desk"}' \
     | docker exec -i broker /opt/kafka/bin/kafka-console-producer.sh \
-        --bootstrap-server localhost:9092 --topic product.discontinued
+        --bootstrap-server localhost:9092 --topic product.deactivated
 
-INFO f.u.e.o.i.kafka.KafkaEventConsumer : Processed external event: product Product:4 was discontinued
+INFO f.u.e.o.i.kafka.KafkaEventConsumer : Processed external event: product Product:4 was deactivated
 ```
 
 The pending order for product 4 moved to `REJECTED`, which is what the test asserts.
 
 ### Resilience (Task 6.3)
 
-With the service stopped, a message was published to `product.discontinued` (product 2). On the next
+With the service stopped, a message was published to `product.deactivated` (product 2). On the next
 startup it was consumed before anything else happened:
 
 ```
-22:38:02.415  INFO f.u.e.o.i.kafka.KafkaEventConsumer : Processed external event: product Product:2 was discontinued
-22:38:02.795  INFO f.u.e.o.i.kafka.KafkaEventConsumer : Processed external event: product Product:4 was discontinued
+22:38:02.415  INFO f.u.e.o.i.kafka.KafkaEventConsumer : Processed external event: product Product:2 was deactivated
+22:38:02.795  INFO f.u.e.o.i.kafka.KafkaEventConsumer : Processed external event: product Product:4 was deactivated
 ```
 
 `auto-offset-reset: earliest` plus a committed group offset is what makes that work: the consumer

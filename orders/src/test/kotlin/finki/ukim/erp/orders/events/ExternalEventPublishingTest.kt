@@ -14,6 +14,7 @@ import finki.ukim.erp.orders.PaymentType
 import finki.ukim.erp.orders.ProductId
 import finki.ukim.erp.orders.Quantity
 import finki.ukim.erp.orders.TransactionId
+import finki.ukim.erp.orders.events.ORDER_NULLIFIED_TOPIC
 import finki.ukim.erp.orders.handlers.EventMessagingEventHandler
 import finki.ukim.erp.orders.services.EventMessagingService
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -33,7 +34,7 @@ import java.math.BigDecimal
 class ExternalEventPublishingTest {
 
     private val orderId = OrderId("Order:order-1")
-    private val lines = listOf(OrderItemEventData(ProductId(1L), Quantity(2), Money(BigDecimal("25.00"))))
+    private val lines = listOf(OrderItemEventData(ProductId("product-1"), Quantity(2), Money(BigDecimal("25.00"))))
 
     private val sent = mutableListOf<Triple<String, String, String>>()
 
@@ -63,7 +64,7 @@ class ExternalEventPublishingTest {
         orderId = orderId,
         invoiceNumber = InvoiceNumber("INV-0001"),
         embg = Embg("1234567890123"),
-        items = listOf(InvoiceLineItemEventData(ProductId(1L), Quantity(2), Money(BigDecimal("25.00")))),
+        items = listOf(InvoiceLineItemEventData(ProductId("product-1"), Quantity(2), Money(BigDecimal("25.00")))),
         totalAmount = Money(BigDecimal("50.00"))
     )
 
@@ -83,7 +84,6 @@ class ExternalEventPublishingTest {
     @Test
     fun `events with nothing public to say are not published`() {
         val internalEvents = listOf(
-            OrderRejectedEvent(orderId),
             OrderItemsUpdatedEvent(orderId, lines, Money(BigDecimal("50.00"))),
             PaymentCreatedEvent(TransactionId("tx-1"), orderId, Money(BigDecimal("50.00")), PaymentType.CASH),
             PaymentReversedEvent(TransactionId("tx-2"), orderId, Money(BigDecimal("-50.00")), PaymentType.CASH),
@@ -92,10 +92,56 @@ class ExternalEventPublishingTest {
 
         internalEvents.forEach { event ->
             assertNull(event.toExternalEvent(), "${event.javaClass.simpleName} should stay internal")
+            assertTrue(event.toExternalEvents().isEmpty(), "${event.javaClass.simpleName} should stay internal")
             handler.on(event)
         }
 
         assertTrue(sent.isEmpty(), "nothing internal should have reached a topic")
+    }
+
+    /**
+     * The point of the nullification topic: a consumer holding stock, a delivery slot or a credit
+     * line for an order has one topic to read and one rule to follow, however the order died.
+     * Asserted for all three endings together, because the value is in there being no fourth way an
+     * order can end quietly.
+     */
+    @Test
+    fun `every way an order can end announces itself as a nullification`() {
+        handler.on(OrderCancelledEvent(orderId, Money(BigDecimal("50.00")), lines))
+        handler.on(OrderRejectedEvent(orderId))
+        handler.on(InvoiceReversedEvent(InvoiceId("Invoice:invoice-1"), orderId, Money(BigDecimal("50.00"))))
+
+        val nullifications = sent.filter { it.first == ORDER_NULLIFIED_TOPIC }
+        assertEquals(3, nullifications.size, sent.joinToString("\n") { it.first })
+        assertEquals(listOf("Order:order-1"), nullifications.map { it.second }.distinct())
+
+        val reasons = nullifications.map { objectMapper.readTree(it.third)["reason"].asText() }
+        assertEquals(listOf("CANCELLED", "REJECTED", "REFUNDED"), reasons)
+    }
+
+    /**
+     * A cancellation is two announcements, not one renamed. Anyone already following
+     * `order.cancelled` keeps working; the nullification is added alongside it.
+     */
+    @Test
+    fun `a cancellation is announced on its own topic as well as the nullification topic`() {
+        handler.on(OrderCancelledEvent(orderId, Money(BigDecimal("50.00")), lines))
+
+        assertEquals(setOf("order.cancelled", ORDER_NULLIFIED_TOPIC), sent.map { it.first }.toSet())
+    }
+
+    /**
+     * A rejected order never reserved anything, so there is nothing for a consumer to give back and
+     * no lines to describe it with - and rejection gets no topic of its own, because *why* an order
+     * was refused is this service's business.
+     */
+    @Test
+    fun `a rejection is a nullification and nothing else`() {
+        handler.on(OrderRejectedEvent(orderId))
+
+        val (topic, _, payload) = sent.single()
+        assertEquals(ORDER_NULLIFIED_TOPIC, topic)
+        assertEquals(0, objectMapper.readTree(payload)["lines"].size())
     }
 
     @Test
@@ -106,7 +152,7 @@ class ExternalEventPublishingTest {
         assertEquals("order.approved", topic)
         // Keyed by the order, so everything about one order stays on one partition and in order.
         assertEquals("Order:order-1", key)
-        assertTrue(payload.contains("\"productId\":1"), payload)
+        assertTrue(payload.contains("\"productId\":\"product-1\""), payload)
         assertTrue(payload.contains("\"quantity\":2"), payload)
     }
 
@@ -136,7 +182,8 @@ class ExternalEventPublishingTest {
 
         assertEquals("Order:order-1", json["orderId"].asText())
         assertEquals(1, json["lines"].size())
-        assertEquals(1, json["lines"][0]["productId"].asInt())
+        // A string, because a product id belongs to inventory and is opaque here.
+        assertEquals("product-1", json["lines"][0]["productId"].asText())
         assertEquals(2, json["lines"][0]["quantity"].asInt())
         // Money is written as a JSON number, not a string, so a consumer reads it as one.
         assertEquals(0, json["totalAmount"].decimalValue().compareTo(BigDecimal("50.00")))

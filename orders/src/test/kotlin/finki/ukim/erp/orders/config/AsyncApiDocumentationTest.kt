@@ -1,5 +1,6 @@
 package finki.ukim.erp.orders.config
 
+import finki.ukim.erp.orders.events.ORDER_NULLIFIED_TOPIC
 import io.github.springwolf.asyncapi.v3.model.AsyncAPI
 import io.github.springwolf.asyncapi.v3.model.operation.OperationAction
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -22,7 +23,10 @@ class AsyncApiDocumentationTest {
         val channels = documented().channels.keys
 
         assertTrue(channels.containsAll(
-            listOf("order.created", "order.approved", "order.cancelled", "invoice.generated", "invoice.reversed")
+            listOf(
+                "order.created", "order.approved", "order.cancelled",
+                "invoice.generated", "invoice.reversed", ORDER_NULLIFIED_TOPIC
+            )
         ), "documented channels were $channels")
     }
 
@@ -30,11 +34,24 @@ class AsyncApiDocumentationTest {
     fun `the topic this service consumes is documented as incoming`() {
         val api = documented()
 
-        assertTrue(api.channels.containsKey("product.discontinued"))
+        assertTrue(api.channels.containsKey("product.deactivated"))
         assertEquals(
             OperationAction.RECEIVE,
-            api.operations["product.discontinued.consume"]?.action
+            api.operations["product.deactivated.consume"]?.action
         )
+    }
+
+    /**
+     * The nullification topic is not named after any one event - three different endings publish it
+     * - so it is the one channel the documentation declares by hand rather than deriving. This is
+     * the assertion that it does not get forgotten there when it is added to an event.
+     */
+    @Test
+    fun `the nullification topic is documented as outgoing`() {
+        val api = documented()
+
+        assertTrue(api.channels.containsKey(ORDER_NULLIFIED_TOPIC), "channels were ${api.channels.keys}")
+        assertEquals(OperationAction.SEND, api.operations["$ORDER_NULLIFIED_TOPIC.publish"]?.action)
     }
 
     @Test

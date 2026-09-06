@@ -52,7 +52,7 @@ class InventoryCircuitBreakerTest {
     fun `repeated failures open the breaker, and the calls after it never reach the network`() {
         repeat(4) {
             assertThrows(InventoryUnavailableException::class.java) {
-                inventoryCatalog.findProduct(ProductId(1L))
+                inventoryCatalog.findProduct(ProductId("product-1"))
             }
         }
 
@@ -63,7 +63,7 @@ class InventoryCircuitBreakerTest {
 
         val callsBefore = open.sumOf { it.metrics.numberOfFailedCalls }
         assertThrows(InventoryUnavailableException::class.java) {
-            inventoryCatalog.findProduct(ProductId(1L))
+            inventoryCatalog.findProduct(ProductId("product-1"))
         }
         assertEquals(
             callsBefore,

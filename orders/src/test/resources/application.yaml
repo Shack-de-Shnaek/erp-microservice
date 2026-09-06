@@ -42,7 +42,7 @@ axon:
 orders:
   kafka:
     # No broker in the test suite, so neither end of the Kafka wiring is started. The inbound
-    # handler is exercised directly in ProductDiscontinuedEventHandlerTest.
+    # handler is exercised directly in ProductDeactivatedEventHandlerTest.
     publishing-enabled: false
     consuming-enabled: false
 

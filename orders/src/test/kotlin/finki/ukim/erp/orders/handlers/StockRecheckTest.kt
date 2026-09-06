@@ -69,7 +69,7 @@ class StockRecheckTest {
                 orderId = orderId,
                 customerId = "customer-1",
                 customer = CustomerName("John", "Doe"),
-                items = listOf(OrderItemEventData(ProductId(1L), Quantity(2), Money(BigDecimal("25.00")))),
+                items = listOf(OrderItemEventData(ProductId("product-1"), Quantity(2), Money(BigDecimal("25.00")))),
                 totalAmount = Money(BigDecimal("50.00"))
             )
         )
@@ -120,7 +120,7 @@ class StockRecheckTest {
             .expectEvents(
                 OrderApprovedEvent(
                     orderId,
-                    listOf(OrderItemEventData(ProductId(1L), Quantity(2), Money(BigDecimal("25.00"))))
+                    listOf(OrderItemEventData(ProductId("product-1"), Quantity(2), Money(BigDecimal("25.00"))))
                 )
             )
     }

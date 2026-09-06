@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Pattern
+import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Positive
 import java.math.BigDecimal
 
@@ -15,8 +16,8 @@ data class GenerateInvoiceRequest(
 )
 
 data class InvoiceLineItemRequest(
-    @field:Positive(message = "inventoryItemId must be positive")
-    val inventoryItemId: Long,
+    @field:NotBlank(message = "inventoryItemId must not be blank")
+    val inventoryItemId: String,
 
     @field:Min(value = 1, message = "quantity must be at least 1")
     val quantity: Int,

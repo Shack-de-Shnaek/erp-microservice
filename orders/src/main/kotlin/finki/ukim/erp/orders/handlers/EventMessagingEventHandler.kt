@@ -19,8 +19,8 @@ import org.springframework.stereotype.Component
  * overriding `toExternalEvent` on it. Nothing here changes, and nothing has to be remembered - the
  * old arrangement, a publisher method plus a forwarder method per event, had two places to forget.
  *
- * Events with nothing public to say return null and are dropped here, so an event is internal by
- * default and public only by decision.
+ * Events with nothing public to say publish nothing and are dropped here, so an event is internal
+ * by default and public only by decision.
  *
  * This runs on a tracking processor (see application.yaml): the event store is the record of what
  * happened, so a broker outage should delay delivery and catch up afterwards, not fail the command
@@ -53,12 +53,17 @@ class EventMessagingEventHandler(
 
     @EventHandler
     fun on(event: AbstractEvent) {
-        val externalEvent = event.toExternalEvent() ?: return
+        val key = event.identifier.value.toString()
 
-        eventMessagingService.send(
-            topic = event.eventTopic(),
-            key = event.identifier.value.toString(),
-            payload = objectMapper.writeValueAsString(externalEvent)
-        )
+        // A list, because one thing happening can be more than one announcement - a cancellation is
+        // both `order.cancelled` and `order.nullified`. An event with nothing public to say returns
+        // an empty one and nothing is sent.
+        event.toExternalEvents().forEach { publication ->
+            eventMessagingService.send(
+                topic = publication.topic,
+                key = key,
+                payload = objectMapper.writeValueAsString(publication.payload)
+            )
+        }
     }
 }

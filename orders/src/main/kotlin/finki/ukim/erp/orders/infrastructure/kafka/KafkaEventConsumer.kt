@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
-import finki.ukim.erp.orders.handlers.ProductDiscontinuedEventHandler
+import finki.ukim.erp.orders.handlers.ProductDeactivatedEventHandler
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -32,8 +32,8 @@ import org.springframework.stereotype.Service
     matchIfMissing = true
 )
 class KafkaEventConsumer(
-    private val translator: ProductDiscontinuedTranslator,
-    private val productDiscontinuedEventHandler: ProductDiscontinuedEventHandler
+    private val translator: ProductDeactivatedTranslator,
+    private val productDeactivatedEventHandler: ProductDeactivatedEventHandler
 ) {
 
     private val logger = LoggerFactory.getLogger(KafkaEventConsumer::class.java)
@@ -42,13 +42,13 @@ class KafkaEventConsumer(
         .registerModules(KotlinModule.Builder().build())
         .registerModule(JavaTimeModule())
 
-    @KafkaListener(topics = [PRODUCT_DISCONTINUED_TOPIC])
-    fun onProductDiscontinued(record: ConsumerRecord<String, String>) {
+    @KafkaListener(topics = [PRODUCT_DEACTIVATED_TOPIC])
+    fun onProductDeactivated(record: ConsumerRecord<String, String>) {
         try {
-            val dto: ProductDiscontinuedExternalEventDTO = objectMapper.readValue(record.value())
-            val productId = translator.toDiscontinuedProduct(dto)
-            productDiscontinuedEventHandler.handle(productId)
-            logger.info("Processed external event: product {} was discontinued", productId)
+            val dto: ProductDeactivatedExternalEventDTO = objectMapper.readValue(record.value())
+            val productId = translator.toDeactivatedProduct(dto)
+            productDeactivatedEventHandler.handle(productId)
+            logger.info("Processed external event: product {} was deactivated", productId)
         } catch (ex: Exception) {
             logger.error("Failed to process event from topic {}: {}", record.topic(), record.value(), ex)
         }
@@ -56,9 +56,9 @@ class KafkaEventConsumer(
 
     companion object {
         /**
-         * Named the way this service names its own topics - `ProductDiscontinuedEvent` ->
-         * `product.discontinued` - so both ends of the system read the same way.
+         * Named the way this service names its own topics - `ProductDeactivatedEvent` ->
+         * `product.deactivated` - so both ends of the system read the same way.
          */
-        const val PRODUCT_DISCONTINUED_TOPIC = "product.discontinued"
+        const val PRODUCT_DEACTIVATED_TOPIC = "product.deactivated"
     }
 }

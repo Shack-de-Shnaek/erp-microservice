@@ -39,9 +39,9 @@ class TransactionIdConverter : AttributeConverter<TransactionId, String> {
 }
 
 @Converter(autoApply = true)
-class ProductIdConverter : AttributeConverter<ProductId, Long> {
-    override fun convertToDatabaseColumn(attribute: ProductId?): Long? = attribute?.value
-    override fun convertToEntityAttribute(dbData: Long?): ProductId? = dbData?.let { ProductId(it) }
+class ProductIdConverter : AttributeConverter<ProductId, String> {
+    override fun convertToDatabaseColumn(attribute: ProductId?): String? = attribute?.value
+    override fun convertToEntityAttribute(dbData: String?): ProductId? = dbData?.let { ProductId(it) }
 }
 
 @Converter(autoApply = true)

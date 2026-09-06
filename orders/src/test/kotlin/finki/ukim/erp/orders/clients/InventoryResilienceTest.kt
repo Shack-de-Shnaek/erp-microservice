@@ -48,21 +48,31 @@ class InventoryResilienceTest {
     @Test
     @Order(1)
     fun `a product the other service knows about comes back priced and in stock`() {
-        val product = inventoryCatalog.requireAvailable(ProductId(1L), Quantity(5))
+        val product = inventoryCatalog.requireAvailable(ProductId("product-1"), Quantity(5))
 
-        assertEquals(1L, product.id)
+        assertEquals("product-1", product.id)
+        // What the stub has on hand is AVAILABLE + RESERVED; what may be promised is the
+        // difference, and getting that subtraction wrong is precisely how a service oversells.
         assertEquals(InventoryStubServer.AVAILABLE_QUANTITY, product.availableQuantity)
     }
 
+    /**
+     * Inventory has no endpoint that takes a list of ids, so a whole order costs two requests per
+     * line - the catalogue entry and the stock ledger. That is asserted rather than glossed over:
+     * it is the cost of the contract as it stands today, and a batch endpoint appearing on
+     * inventory's side should show up here as this number falling.
+     */
     @Test
     @Order(2)
-    fun `a whole order is checked in one round trip`() {
+    fun `a whole order costs two requests per line, because inventory has no batch endpoint`() {
         val before = stub.receivedCorrelationIds.size
 
-        val products = inventoryCatalog.findProducts(listOf(ProductId(1L), ProductId(2L), ProductId(3L)))
+        val products = inventoryCatalog.findProducts(
+            listOf(ProductId("product-1"), ProductId("product-2"), ProductId("product-3"))
+        )
 
-        assertEquals(setOf(ProductId(1L), ProductId(2L), ProductId(3L)), products.keys)
-        assertEquals(1, stub.receivedCorrelationIds.size - before, "three products, one HTTP call")
+        assertEquals(setOf(ProductId("product-1"), ProductId("product-2"), ProductId("product-3")), products.keys)
+        assertEquals(6, stub.receivedCorrelationIds.size - before, "three products, a product and a stock call each")
     }
 
     @Test
@@ -92,7 +102,7 @@ class InventoryResilienceTest {
     fun `the caller's correlation id travels with the outgoing request`() {
         CorrelationId.set("correlation-under-test")
 
-        inventoryCatalog.findProduct(ProductId(1L))
+        inventoryCatalog.findProduct(ProductId("product-1"))
 
         assertEquals("correlation-under-test", stub.receivedCorrelationIds.last())
     }
@@ -100,7 +110,7 @@ class InventoryResilienceTest {
     @Test
     @Order(6)
     fun `a call with no inbound request still carries an id, rather than none`() {
-        inventoryCatalog.findProduct(ProductId(1L))
+        inventoryCatalog.findProduct(ProductId("product-1"))
 
         val sent = stub.receivedCorrelationIds.last()
         assertNotNull(sent)
@@ -117,7 +127,7 @@ class InventoryResilienceTest {
         try {
             val startedAt = System.nanoTime()
             assertThrows(InventoryUnavailableException::class.java) {
-                inventoryCatalog.findProduct(ProductId(1L))
+                inventoryCatalog.findProduct(ProductId("product-1"))
             }
             val elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000
 
@@ -130,7 +140,7 @@ class InventoryResilienceTest {
 
         // Still serving as soon as the target is back - the breaker has not latched the service
         // into a broken state.
-        assertEquals(1L, inventoryCatalog.requireProduct(ProductId(1L)).id)
+        assertEquals("product-1", inventoryCatalog.requireProduct(ProductId("product-1")).id)
     }
 
     companion object {

@@ -58,6 +58,24 @@ abstract class AbstractEvent(
     @JsonIgnore
     open fun toExternalEvent(): Any? = null
 
+    /**
+     * Everything this event puts on a topic, and where.
+     *
+     * Almost always exactly what [toExternalEvent] returned, on the topic named after this event -
+     * which is what the default does, so nothing that only overrides `toExternalEvent` has to know
+     * this method exists.
+     *
+     * It is a list because a few events are two announcements at once. An order being cancelled is
+     * both "this particular thing happened" - `order.cancelled`, for anyone following the life of
+     * an order - and "this order is void" - `order.nullified`, for anyone who is only holding
+     * something on the order's behalf and needs to let go of it. Collapsing those into one topic
+     * would force every consumer to care about the distinction; leaving the second one out would
+     * make every consumer that only cares about voiding subscribe to three topics and re-derive it.
+     */
+    @JsonIgnore
+    open fun toExternalEvents(): List<ExternalPublication> =
+        toExternalEvent()?.let { listOf(ExternalPublication(eventTopic(), it)) } ?: emptyList()
+
     companion object {
         /**
          * `OrderApprovedEvent` -> `order.approved`. Kept here rather than inline in [eventTopic] so
@@ -73,6 +91,12 @@ abstract class AbstractEvent(
     }
 }
 
+/** One public message, and the topic it belongs on. */
+data class ExternalPublication(
+    val topic: String,
+    val payload: Any
+)
+
 /**
  * Everything that happens to an order, its payments and its invoice. They share this class because
  * they share an aggregate: all of them are keyed by the order they happened to.
@@ -80,4 +104,23 @@ abstract class AbstractEvent(
 abstract class OrderEvent(
     open val orderId: OrderId,
     open val occurredAt: LocalDateTime
-) : AbstractEvent(orderId)
+) : AbstractEvent(orderId) {
+
+    /**
+     * This order is void, whatever the reason. Every event that ends an order the wrong way -
+     * cancelled, rejected, refunded - announces it in exactly these words, so a consumer holding
+     * something on the order's behalf has one topic to read and one thing to do.
+     */
+    protected fun nullification(
+        reason: NullificationReason,
+        lines: List<OrderLine> = emptyList()
+    ) = ExternalPublication(
+        ORDER_NULLIFIED_TOPIC,
+        OrderNullifiedExternalEvent(
+            orderId = orderId,
+            reason = reason,
+            lines = lines,
+            nullifiedAt = occurredAt
+        )
+    )
+}

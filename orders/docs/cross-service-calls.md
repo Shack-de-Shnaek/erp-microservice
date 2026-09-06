@@ -26,8 +26,8 @@ why these calls exist.
 | **Commands** | `CreateOrderCommand`, `UpdateOrderItemsCommand` | `ApproveOrderCommand`, `GenerateInvoiceCommand` |
 | **Handled in** | `OrderCommandService` (before dispatch) | `ApproveOrderCommandHandler`, `GenerateInvoiceCommandHandler` |
 | **Question** | Does each product exist, can it cover the quantity, and what does it cost? | Is the stock this order was accepted on *still* there? |
-| **Endpoint** | `GET /products?ids=` | `GET /products?ids=` |
-| **Response** | An array of products | An array of products |
+| **Endpoint** | `GET /api/products/{id}` + `GET /api/stock/{id}`, per line | the same |
+| **Response** | A catalogue entry and a stock ledger row, joined here | the same |
 | **If the answer is no** | 404 `ProductNotFoundException` / 400 `InsufficientStockException` | the same, and the order does not move |
 
 They look similar and are not the same question. The first is *validation of a reference*: a
@@ -37,40 +37,55 @@ sit pending for days, and the stock it was accepted on can be sold to someone el
 Only asking at creation time would approve orders that cannot be fulfilled; only asking at approval
 time would let customers place orders for products that never existed.
 
-Prices come back from the same call, which is why creation cannot skip it even in principle. A
-price is inventory's to state, and the aggregate is not allowed to go and fetch one - see "Why the
-aggregate never holds a client" below.
+Pricing is where the boundary is currently unfinished. A price is inventory's to state, and the
+aggregate is not allowed to go and fetch one - see "Why the aggregate never holds a client" below -
+but inventory's product resource does not carry one, and its `Product` aggregate has no money on it
+at all. Against the live service every line prices at zero; only the `mock-inventory` profile
+produces a priced order. Either inventory grows a price or a third service owns pricing, and that
+is a conversation with the other team rather than something this service can settle.
 
 ### 1.2 - The contract with the inventory team
 
 Addressed as `inventory` through Consul - the name the inventory service registers itself under.
 
 ```
-GET /products/{id}
-  200 -> {"id":1,"name":"Desk lamp","price":19.99,"availableQuantity":100}
+GET /api/products/{id}
+  200 -> {"productId":"1111...","sku":"SKU-001","name":"Widget",
+          "unitOfMeasure":"pcs","status":"ACTIVE"}
   404 -> the product does not exist
 
-GET /products?ids=1&ids=2
-  200 -> [ {...}, {...} ]        products that do not exist are absent from the array,
-                                  not an error
+GET /api/stock/{id}
+  200 -> {"stockItemId":"2222...","productId":"1111...","onHand":100,
+          "reserved":0,"reorderThreshold":10}
+  404 -> the product exists but nothing is stocked -> availability of zero
 ```
 
-Only four fields, because those are the four the ordering flow reads. Inventory is free to change
-everything else about a product without breaking this service.
+**One question, two resources.** Inventory keeps the catalogue and the stock ledger apart, with
+separate lifecycles, and that is a reasonable thing for that service to do rather than something
+orders should ask it to undo. `InventoryCatalog` puts the halves back together into the single
+`InventoryProduct` the domain works with. Availability is `onHand - reserved`, never `onHand`:
+what is already committed to somebody else's order is not ours to promise.
+
+**Ids are opaque.** A product id is a string that inventory generates - a UUID in every deployment
+so far - and this service carries it without interpreting it. It used to be a `Long` here, on the
+assumption that inventory keyed products by a number; it does not, and every call built on that
+assumption was a guaranteed 404.
+
+The 404s mean different things on the two paths. On the product path it is "no such product", which
+orders turns into `ProductNotFoundException`. On the stock path it is not an error at all: the
+product is real and simply has nothing on the shelf.
 
 This contract is not just prose: `InventoryClientPactTest` exercises the real client against Pact's
 mock provider and writes `target/pacts/orders-inventory.json`. Inventory verifies itself against
 that file, so if either endpoint changes shape, their build fails rather than our runtime.
 
-**Why the batch endpoint.** `/products/{id}` alone would do, and that is how this started. But
-approval checks *every line of an order at once*, inside the command's unit of work - so a ten-line
-order meant ten sequential HTTP calls with a database transaction held open across all of them.
-`GET /products?ids=` makes it one call whatever the order's size. The one-product endpoint stays,
-because a single lookup should not have to pretend to be a list.
-
-Absent-rather-than-404 for unknown ids in a batch is the other half of that decision: one bad id in
-a ten-line order is a fact about that line, and failing the whole request would lose the answer for
-the nine good ones.
+**The missing batch endpoint.** Approval and invoicing check *every line of an order at once*,
+inside the command's unit of work. Inventory exposes one product by id and a paged listing of the
+whole catalogue, and neither of those is "these four ids" - so an n-line order costs 2n sequential
+HTTP calls with a database transaction held open across all of them. `InventoryResilienceTest`
+asserts that cost rather than hiding it, so the day inventory adds `GET /api/products?ids=` (and the
+same on `/api/stock`) the improvement is visible as that number falling. It is not something orders
+can arrange on its own.
 
 ---
 
@@ -91,17 +106,20 @@ it registers under. Ours is `orders`, pinned explicitly as
 `spring.cloud.consul.discovery.service-name` so it cannot drift away from what other teams put in
 their clients.
 
-One interface per target service, not per endpoint:
+One interface per target service, not per endpoint - and no `path` on the annotation, because the
+two resources orders needs sit under different prefixes:
 
 ```kotlin
 @FeignClient(
     name = "inventory",
-    path = "/products",
     fallbackFactory = InventoryClientFallbackFactory::class
 )
 interface InventoryClient {
-    @GetMapping("/{productId}") fun getProduct(@PathVariable productId: Long): InventoryProduct
-    @GetMapping             fun getProducts(@RequestParam("ids") ids: List<Long>): List<InventoryProduct>
+    @GetMapping("/api/products/{productId}")
+    fun getProduct(@PathVariable productId: String): InventoryProductResponse
+
+    @GetMapping("/api/stock/{productId}")
+    fun getStock(@PathVariable productId: String): InventoryStockResponse
 }
 ```
 
@@ -249,8 +267,14 @@ what bounds the call.
 
 Run against the shared infrastructure (`docker compose up -d` at the repo root: Kafka, Consul,
 Keycloak with the `erp` realm imported), the orders service on 8090, and a stub standing in for the
-inventory team's service on 8081, speaking the contract in Part 1.2. Tokens are real, from
-Keycloak: `customer/customer` holds CLIENT, `staff/staff` holds ADMIN.
+inventory team's service on 8081. Tokens are real, from Keycloak: `customer/customer` holds CLIENT,
+`staff/staff` holds ADMIN.
+
+> **These transcripts predate the move to inventory's real URLs.** They were captured against the
+> old `/products?ids=` shape and numeric product ids, and are kept because what they demonstrate -
+> the breaker opening, the correlation id travelling, a 503 arriving in milliseconds - is unchanged
+> by which path the request went to. Read the paths and ids in them as historical; the current
+> contract is the one in Part 1.2, and the tests listed under "In the build" run against it.
 
 ### 6.1 - Normal operation
 
@@ -374,4 +398,5 @@ The manual run above is reproduced by tests, so a regression fails the build rat
   it never reaching the network.
 - `InventoryClientFallbackTest`, `CorrelationIdInterceptorTest`, `CorrelationIdFilterTest` - the
   decisions each piece makes, in isolation.
-- `InventoryClientPactTest` - both endpoints of the contract, published for the inventory team.
+- `InventoryClientPactTest` - both resources of the contract, on inventory's real paths, published
+  for the inventory team.

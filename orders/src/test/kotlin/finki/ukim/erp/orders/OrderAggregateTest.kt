@@ -103,7 +103,7 @@ class OrderAggregateTest {
         return order
     }
 
-    private fun orderCreated(vararg items: Triple<Long, Int, String>) = OrderCreatedEvent(
+    private fun orderCreated(vararg items: Triple<String, Int, String>) = OrderCreatedEvent(
         orderId = orderId,
         customerId = customerId,
         customer = customer,
@@ -114,7 +114,7 @@ class OrderAggregateTest {
     )
 
     /** One item: 2 x 25.00 = 50.00. */
-    private fun defaultOrderCreated() = orderCreated(Triple(1L, 2, "25.00"))
+    private fun defaultOrderCreated() = orderCreated(Triple("product-1", 2, "25.00"))
 
     private fun payment(id: String, amount: String, type: PaymentType) =
         PaymentCreatedEvent(TransactionId(id), orderId, Money(BigDecimal(amount)), type)
@@ -126,7 +126,7 @@ class OrderAggregateTest {
         orderId = orderId,
         invoiceNumber = InvoiceNumber("INV-0001"),
         embg = Embg("1234567890123"),
-        items = listOf(InvoiceLineItemEventData(ProductId(1L), Quantity(2), Money(BigDecimal("25.00")))),
+        items = listOf(InvoiceLineItemEventData(ProductId("product-1"), Quantity(2), Money(BigDecimal("25.00")))),
         totalAmount = Money(BigDecimal("50.00"))
     )
 
@@ -134,7 +134,7 @@ class OrderAggregateTest {
 
     /** The default order's lines, which approval and cancellation now carry for consumers. */
     private fun defaultLines() =
-        listOf(OrderItemEventData(ProductId(1L), Quantity(2), money("25.00")))
+        listOf(OrderItemEventData(ProductId("product-1"), Quantity(2), money("25.00")))
 
     private fun approved() = OrderApprovedEvent(orderId, defaultLines())
 
@@ -150,7 +150,7 @@ class OrderAggregateTest {
                     orderId = orderId,
                     customer = customer,
                     customerId = customerId,
-                    items = listOf(PricedItem(ProductId(1L), Quantity(2), money("25.00")))
+                    items = listOf(PricedItem(ProductId("product-1"), Quantity(2), money("25.00")))
                 )
             )
             .expectSuccessfulHandlerExecution()
@@ -162,11 +162,11 @@ class OrderAggregateTest {
     @Test
     fun `updating items on a pending order replaces the whole item set`() {
         fixture.givenState { orderWith(defaultOrderCreated()) }
-            .`when`(UpdateOrderItemsCommand(orderId, listOf(PricedItem(ProductId(2L), Quantity(1), money("99.00")))))
+            .`when`(UpdateOrderItemsCommand(orderId, listOf(PricedItem(ProductId("product-2"), Quantity(1), money("99.00")))))
             .expectEvents(
                 OrderItemsUpdatedEvent(
                     orderId = orderId,
-                    items = listOf(OrderItemEventData(ProductId(2L), Quantity(1), money("99.00"))),
+                    items = listOf(OrderItemEventData(ProductId("product-2"), Quantity(1), money("99.00"))),
                     totalAmount = money("99.00")
                 )
             )
@@ -177,14 +177,14 @@ class OrderAggregateTest {
         fixture.givenState {
             orderWith(defaultOrderCreated(), approved(), fullPayment(), invoiceGenerated())
         }
-            .`when`(UpdateOrderItemsCommand(orderId, listOf(PricedItem(ProductId(1L), Quantity(3), money("25.00")))))
+            .`when`(UpdateOrderItemsCommand(orderId, listOf(PricedItem(ProductId("product-1"), Quantity(3), money("25.00")))))
             .expectException(InvalidOrderStateException::class.java)
     }
 
     @Test
     fun `a cancelled order can no longer be edited`() {
         fixture.givenState { orderWith(defaultOrderCreated(), cancelled(Money.ZERO)) }
-            .`when`(UpdateOrderItemsCommand(orderId, listOf(PricedItem(ProductId(1L), Quantity(3), money("25.00")))))
+            .`when`(UpdateOrderItemsCommand(orderId, listOf(PricedItem(ProductId("product-1"), Quantity(3), money("25.00")))))
             .expectException(InvalidOrderStateException::class.java)
     }
 
@@ -335,12 +335,12 @@ class OrderAggregateTest {
         fixture.givenState {
             orderWith(defaultOrderCreated(), approved(), fullPayment(), invoiceGenerated())
         }
-            .`when`(UpdateInvoiceLineItemsCommand(orderId, listOf(PricedItem(ProductId(2L), Quantity(1), money("99.00")))))
+            .`when`(UpdateInvoiceLineItemsCommand(orderId, listOf(PricedItem(ProductId("product-2"), Quantity(1), money("99.00")))))
             .expectEvents(
                 InvoiceLineItemsUpdatedEvent(
                     invoiceId = invoiceId,
                     orderId = orderId,
-                    items = listOf(InvoiceLineItemEventData(ProductId(2L), Quantity(1), money("99.00"))),
+                    items = listOf(InvoiceLineItemEventData(ProductId("product-2"), Quantity(1), money("99.00"))),
                     totalAmount = money("99.00")
                 )
             )
@@ -349,7 +349,7 @@ class OrderAggregateTest {
     @Test
     fun `line items cannot be changed once the invoice is reversed`() {
         fixture.givenState { reversedInvoiceOrder() }
-            .`when`(UpdateInvoiceLineItemsCommand(orderId, listOf(PricedItem(ProductId(2L), Quantity(1), money("99.00")))))
+            .`when`(UpdateInvoiceLineItemsCommand(orderId, listOf(PricedItem(ProductId("product-2"), Quantity(1), money("99.00")))))
             .expectException(InvalidOrderStateException::class.java)
     }
 
@@ -376,7 +376,7 @@ class OrderAggregateTest {
                 InvoiceLineItemsUpdatedEvent(
                     invoiceId = invoiceId,
                     orderId = orderId,
-                    items = listOf(InvoiceLineItemEventData(ProductId(2L), Quantity(1), money("99.00"))),
+                    items = listOf(InvoiceLineItemEventData(ProductId("product-2"), Quantity(1), money("99.00"))),
                     totalAmount = money("99.00")
                 )
             )

@@ -70,6 +70,43 @@ class PactHttpProviderTest {
         )
     }
 
+    /**
+     * A product that exists and whose stock is entirely spoken for. Orders needs this case in the
+     * contract because availability is `onHand - reserved`: a stub that only ever answered with
+     * plenty free would let a client that read `onHand` alone pass, and oversell in production.
+     */
+    @State("a product whose stock is entirely reserved exists")
+    fun `setup fully reserved product`() {
+        productViewRepository.save(
+            ProductView(
+                productId = "33333333-3333-3333-3333-333333333333",
+                sku = "SKU-003",
+                name = "Notebook",
+                unitOfMeasure = "pcs",
+                status = ProductStatus.ACTIVE,
+            ),
+        )
+        stockItemViewRepository.save(
+            StockItemView(
+                stockItemId = "44444444-4444-4444-4444-444444444444",
+                productId = "33333333-3333-3333-3333-333333333333",
+                onHand = 8,
+                reserved = 8,
+                reorderThreshold = 10,
+            ),
+        )
+    }
+
+    /**
+     * Deliberately empty, and the assertion is that it stays that way: orders relies on a 404
+     * meaning "no such product" rather than "inventory is unwell", and answers a customer
+     * differently for each.
+     */
+    @State("no product with that id exists")
+    fun `setup unknown product`() {
+        productViewRepository.deleteById("99999999-9999-9999-9999-999999999999")
+    }
+
     @TestTemplate
     fun pactVerificationTestTemplate(context: PactVerificationContext) {
         context.verifyInteraction()

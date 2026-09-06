@@ -4,11 +4,10 @@ import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotEmpty
-import jakarta.validation.constraints.Positive
 
 data class OrderItemRequest(
-    @field:Positive(message = "productId must be positive")
-    val productId: Long,
+    @field:NotBlank(message = "productId must not be blank")
+    val productId: String,
 
     @field:Min(value = 1, message = "quantity must be at least 1")
     val quantity: Int

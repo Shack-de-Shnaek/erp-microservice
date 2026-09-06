@@ -1,0 +1,161 @@
+{
+  "consumer": {
+    "name": "inventory"
+  },
+  "provider": {
+    "name": "orders"
+  },
+  "messages": [
+    {
+      "description": "Order Approved",
+      "providerStates": [
+        {
+          "name": "an order has been approved"
+        }
+      ],
+      "contents": {
+        "orderId": "Order:9f1c0a4e-2f6b-4d1e-9c33-7a5b2e8d10f4",
+        "lines": [
+          {
+            "productId": "11111111-1111-1111-1111-111111111111",
+            "quantity": 5
+          }
+        ],
+        "approvedAt": "2026-09-05T10:15:30"
+      },
+      "matchingRules": {
+        "body": {
+          "$.orderId": {
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "Order:[0-9a-f-]+"
+              }
+            ],
+            "combine": "AND"
+          },
+          "$.lines": {
+            "matchers": [
+              {
+                "match": "type",
+                "min": 1
+              }
+            ],
+            "combine": "AND"
+          },
+          "$.lines[*].productId": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ],
+            "combine": "AND"
+          },
+          "$.lines[*].quantity": {
+            "matchers": [
+              {
+                "match": "integer"
+              }
+            ],
+            "combine": "AND"
+          },
+          "$.approvedAt": {
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+              }
+            ],
+            "combine": "AND"
+          }
+        }
+      },
+      "metaData": {
+        "contentType": "application/json"
+      }
+    },
+    {
+      "description": "Order Nullified",
+      "providerStates": [
+        {
+          "name": "an order has been nullified"
+        }
+      ],
+      "contents": {
+        "orderId": "Order:9f1c0a4e-2f6b-4d1e-9c33-7a5b2e8d10f4",
+        "reason": "CANCELLED",
+        "lines": [
+          {
+            "productId": "11111111-1111-1111-1111-111111111111",
+            "quantity": 5
+          }
+        ],
+        "nullifiedAt": "2026-09-05T10:15:30"
+      },
+      "matchingRules": {
+        "body": {
+          "$.orderId": {
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "Order:[0-9a-f-]+"
+              }
+            ],
+            "combine": "AND"
+          },
+          "$.reason": {
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "CANCELLED|REJECTED|REFUNDED"
+              }
+            ],
+            "combine": "AND"
+          },
+          "$.lines": {
+            "matchers": [
+              {
+                "match": "type",
+                "min": 0
+              }
+            ],
+            "combine": "AND"
+          },
+          "$.lines[*].productId": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ],
+            "combine": "AND"
+          },
+          "$.lines[*].quantity": {
+            "matchers": [
+              {
+                "match": "integer"
+              }
+            ],
+            "combine": "AND"
+          },
+          "$.nullifiedAt": {
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+              }
+            ],
+            "combine": "AND"
+          }
+        }
+      },
+      "metaData": {
+        "contentType": "application/json"
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  }
+}

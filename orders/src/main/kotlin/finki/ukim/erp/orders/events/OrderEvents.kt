@@ -107,7 +107,11 @@ data class OrderApprovedEvent(
 }
 
 /**
- * Internal. A rejected order never committed anything, so there is nothing for anyone to undo.
+ * Published, but only as a nullification. A rejected order never reached approval, so nothing was
+ * ever reserved against it and there are no lines worth carrying - but a consumer that opened a
+ * record keyed on the order still has one to close, and it should not have to know that rejection
+ * is a separate topic from cancellation to find out. There is deliberately no `order.rejected`:
+ * *why* an order was refused is this service's business.
  */
 data class OrderRejectedEvent(
     override val orderId: OrderId,
@@ -115,6 +119,8 @@ data class OrderRejectedEvent(
 ) : OrderEvent(orderId, occurredAt) {
 
     constructor(command: RejectOrderCommand) : this(orderId = command.orderId)
+
+    override fun toExternalEvents() = listOf(nullification(NullificationReason.REJECTED))
 }
 
 /**
@@ -134,4 +140,12 @@ data class OrderCancelledEvent(
         lines = items.map { it.toLine() },
         cancelledAt = occurredAt
     )
+
+    /**
+     * Twice over: on `order.cancelled` for anyone following what happens to orders, and on
+     * `order.nullified` for anyone who only needs to know the order is void and let go of what
+     * they were holding for it.
+     */
+    override fun toExternalEvents() =
+        super.toExternalEvents() + nullification(NullificationReason.CANCELLED, items.map { it.toLine() })
 }

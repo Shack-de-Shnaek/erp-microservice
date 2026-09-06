@@ -7,6 +7,7 @@ import finki.ukim.erp.orders.exceptions.InsufficientStockException
 import finki.ukim.erp.orders.exceptions.InventoryUnavailableException
 import finki.ukim.erp.orders.exceptions.ProductNotFoundException
 import org.springframework.stereotype.Component
+import java.math.BigDecimal
 
 /**
  * The domain-facing port onto inventory - an anti-corruption layer. Everything above this line
@@ -21,8 +22,12 @@ interface InventoryCatalog {
     /**
      * Several products in one go. Ids inventory does not know are absent from the result.
      *
-     * Defaults to repeating [findProduct] so a test double only has to implement the one method;
-     * [FeignInventoryCatalog] overrides it with the batch endpoint.
+     * This repeats [findProduct] rather than calling a batch endpoint, because inventory has none:
+     * it exposes a single product by id and a paged listing of the whole catalogue, and neither is
+     * "these four ids". So an n-line order costs 2n calls to inventory. That is a real cost inside
+     * a command's unit of work, and the fix is a batch endpoint on inventory's side
+     * (`GET /api/products?ids=...` and the same on `/api/stock`), not something orders can arrange
+     * on its own.
      */
     fun findProducts(productIds: Collection<ProductId>): Map<ProductId, InventoryProduct> =
         productIds.distinct().mapNotNull { productId -> findProduct(productId)?.let { productId to it } }.toMap()
@@ -57,16 +62,24 @@ class FeignInventoryCatalog(
     private val inventoryClient: InventoryClient
 ) : InventoryCatalog {
 
-    override fun findProduct(productId: ProductId): InventoryProduct? =
-        translatingFailures { inventoryClient.getProduct(productId.value) }
-
-    override fun findProducts(productIds: Collection<ProductId>): Map<ProductId, InventoryProduct> {
-        val ids = productIds.map { it.value }.distinct()
-        if (ids.isEmpty()) {
-            return emptyMap()
-        }
-        val products = translatingFailures { inventoryClient.getProducts(ids) } ?: return emptyMap()
-        return products.associateBy { ProductId(it.id) }
+    /**
+     * One product, assembled from inventory's two resources: the catalogue entry says what it is,
+     * the stock ledger says how much of it is free.
+     *
+     * A missing catalogue entry means the product does not exist and the answer is null. A missing
+     * *stock* entry does not: the product is real and simply has nothing on the shelf, so it comes
+     * back with an availability of zero and the caller's own check decides what that means.
+     */
+    override fun findProduct(productId: ProductId): InventoryProduct? {
+        val product = translatingFailures { inventoryClient.getProduct(productId.value) } ?: return null
+        val stock = translatingFailures { inventoryClient.getStock(productId.value) }
+        return InventoryProduct(
+            id = product.productId,
+            name = product.name,
+            // Inventory publishes no price; see the note on InventoryProduct.
+            price = BigDecimal.ZERO,
+            availableQuantity = stock?.available ?: 0
+        )
     }
 
     /**

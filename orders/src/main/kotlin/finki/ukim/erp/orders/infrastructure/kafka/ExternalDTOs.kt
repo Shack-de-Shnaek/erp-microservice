@@ -19,14 +19,16 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
  *   hole in it.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-data class ProductDiscontinuedExternalEventDTO(
-    /** Required: without it there is nothing to act on. */
-    val productId: ExternalProductIdDTO,
+data class ProductDeactivatedExternalEventDTO(
+    /**
+     * Required: without it there is nothing to act on.
+     *
+     * A bare string, because that is what inventory puts on the wire - its
+     * `ProductDeactivatedExternalEvent` is `{"productId": "<uuid>"}`, one flat field. An earlier
+     * version of this DTO expected `{"productId": {"value": 7}}`, which was a guess at a shape
+     * nothing ever published; every message would have failed to parse and been logged and dropped.
+     */
+    val productId: String,
     val name: String? = null,
-    val discontinuedAt: String? = null
-)
-
-@JsonIgnoreProperties(ignoreUnknown = true)
-data class ExternalProductIdDTO(
-    val value: Long
+    val deactivatedAt: String? = null
 )

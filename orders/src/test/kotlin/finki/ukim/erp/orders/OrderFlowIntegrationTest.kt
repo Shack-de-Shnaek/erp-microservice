@@ -49,7 +49,7 @@ class OrderFlowIntegrationTest {
         name = "John",
         surname = "Doe",
         customerId = "customer-1",
-        items = listOf(OrderItemRequest(productId = 1L, quantity = 2))
+        items = listOf(OrderItemRequest(productId = "product-1", quantity = 2))
     )
 
     @Test
@@ -74,7 +74,7 @@ class OrderFlowIntegrationTest {
                 surname = "Doe",
                 customerId = "customer-1",
                 // Product 3 is in the catalog but out of stock.
-                items = listOf(OrderItemRequest(productId = 3L, quantity = 1))
+                items = listOf(OrderItemRequest(productId = "product-3", quantity = 1))
             )
         }
     }
@@ -90,7 +90,7 @@ class OrderFlowIntegrationTest {
         val invoice = orderCommandService.generateInvoice(order.id, embg = "1234567890123")
         assertEquals(Money(BigDecimal("39.98")), invoice.totalAmount)
         assertTrue(invoice.invoiceNumber.value.startsWith("INV-"))
-        assertEquals(ProductId(1L), invoice.lineItems.single().inventoryItemId)
+        assertEquals(ProductId("product-1"), invoice.lineItems.single().inventoryItemId)
 
         val invoiced = orderViewReadService.findById(order.id)
         assertEquals(OrderStatus.APPROVED, invoiced.status)
@@ -117,14 +117,14 @@ class OrderFlowIntegrationTest {
 
         val corrected = orderCommandService.updateInvoiceLineItems(
             invoice.id,
-            listOf(InvoiceLineItemRequest(inventoryItemId = 2L, quantity = 1, price = BigDecimal("49.50")))
+            listOf(InvoiceLineItemRequest(inventoryItemId = "product-2", quantity = 1, price = BigDecimal("49.50")))
         )
 
-        assertEquals(ProductId(2L), corrected.lineItems.single().inventoryItemId)
+        assertEquals(ProductId("product-2"), corrected.lineItems.single().inventoryItemId)
         assertEquals(Money(BigDecimal("49.50")), corrected.totalAmount)
 
         val unchanged = orderViewReadService.findById(order.id)
-        assertEquals(ProductId(1L), unchanged.items.single().productId)
+        assertEquals(ProductId("product-1"), unchanged.items.single().productId)
         assertEquals(Quantity(2), unchanged.items.single().quantity)
     }
 
@@ -136,7 +136,7 @@ class OrderFlowIntegrationTest {
         orderCommandService.generateInvoice(order.id, embg = "1234567890123")
 
         assertThrows(InvalidOrderStateException::class.java) {
-            orderCommandService.updateOrderItems(order.id, listOf(OrderItemRequest(productId = 1L, quantity = 3)))
+            orderCommandService.updateOrderItems(order.id, listOf(OrderItemRequest(productId = "product-1", quantity = 3)))
         }
     }
 

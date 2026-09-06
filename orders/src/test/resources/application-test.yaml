@@ -1,0 +1,22 @@
+## The `test` profile, activated explicitly by @ActiveProfiles("test") on the Pact provider test.
+##
+## It is a *profile*, not the suite's baseline: src/test/resources/application.yaml already points
+## every test at in-memory H2 with Consul, Axon Server, Kafka and springwolf switched off, and this
+## file only adds what replaying a contract needs on top of that. Everything else in the suite keeps
+## running under the default profile with the real SecurityConfig in front of it.
+##
+## It lives under src/test/resources rather than src/main/resources on purpose. This is
+## configuration for running tests; shipping it inside the jar would put a disabled security setup
+## into the production artefact, where a mistyped profile name could pick it up.
+spring:
+  autoconfigure:
+    # Pact replays a contract's requests with no bearer token - it is verifying the shape of what
+    # this service answers, not the authentication in front of it. Without this the resource server
+    # would still stand up a JwtDecoder pointed at a Keycloak that is not running.
+    #
+    # This is the Boot 4 coordinate of the class; it moved out of `...boot.autoconfigure.security`
+    # when Boot 4 split the starters up, and naming the old one would fail the context at startup.
+    #
+    # Safe only because it is scoped to this profile. Nothing in application.yaml is weakened; see
+    # TestSecurityConfig for the other half.
+    exclude: org.springframework.boot.security.oauth2.server.resource.autoconfigure.servlet.OAuth2ResourceServerAutoConfiguration

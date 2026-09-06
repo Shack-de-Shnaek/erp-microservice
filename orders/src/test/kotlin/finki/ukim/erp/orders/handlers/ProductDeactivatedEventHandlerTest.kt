@@ -24,11 +24,11 @@ import java.math.BigDecimal
  * The cross-service reaction, tested without a broker anywhere in sight - which is the payoff of
  * the consumer holding the Kafka parts and this class holding the decision.
  */
-class ProductDiscontinuedEventHandlerTest {
+class ProductDeactivatedEventHandlerTest {
 
     private val commandGateway: CommandGateway = mock(CommandGateway::class.java)
 
-    private fun orderFor(id: String, productId: Long): OrderView = OrderView(
+    private fun orderFor(id: String, productId: String): OrderView = OrderView(
         id = OrderId(id),
         customer = CustomerName("John", "Doe"),
         customerId = "customer-1",
@@ -53,11 +53,11 @@ class ProductDiscontinuedEventHandlerTest {
     }
 
     @Test
-    fun `every pending order for the discontinued product is rejected`() {
-        val affected = listOf(orderFor("Order:a", 7L), orderFor("Order:b", 7L))
-        val handler = ProductDiscontinuedEventHandler(commandGateway, readServiceReturning(affected))
+    fun `every pending order for the deactivated product is rejected`() {
+        val affected = listOf(orderFor("Order:a", "product-7"), orderFor("Order:b", "product-7"))
+        val handler = ProductDeactivatedEventHandler(commandGateway, readServiceReturning(affected))
 
-        handler.handle(ProductId(7L))
+        handler.handle(ProductId("product-7"))
 
         val dispatched = ArgumentCaptor.forClass(Any::class.java)
         verify(commandGateway, times(2)).sendAndWait<Any>(dispatched.capture())
@@ -69,12 +69,12 @@ class ProductDiscontinuedEventHandlerTest {
 
     @Test
     fun `orders for other products are left alone`() {
-        val handler = ProductDiscontinuedEventHandler(
+        val handler = ProductDeactivatedEventHandler(
             commandGateway,
-            readServiceReturning(listOf(orderFor("Order:a", 1L)))
+            readServiceReturning(listOf(orderFor("Order:a", "product-1")))
         )
 
-        handler.handle(ProductId(7L))
+        handler.handle(ProductId("product-7"))
 
         verifyNoInteractions(commandGateway)
     }

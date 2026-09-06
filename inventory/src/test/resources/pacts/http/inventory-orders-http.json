@@ -57,6 +57,74 @@
           "reorderThreshold": 10
         }
       }
+    },
+    {
+      "description": "get a fully reserved product by id",
+      "providerStates": [
+        {
+          "name": "a product whose stock is entirely reserved exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/products/33333333-3333-3333-3333-333333333333",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "productId": "33333333-3333-3333-3333-333333333333",
+          "sku": "SKU-003",
+          "name": "Notebook",
+          "unitOfMeasure": "pcs",
+          "status": "ACTIVE"
+        }
+      }
+    },
+    {
+      "description": "get stock for a fully reserved product",
+      "providerStates": [
+        {
+          "name": "a product whose stock is entirely reserved exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/stock/33333333-3333-3333-3333-333333333333",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "stockItemId": "44444444-4444-4444-4444-444444444444",
+          "productId": "33333333-3333-3333-3333-333333333333",
+          "onHand": 8,
+          "reserved": 8,
+          "reorderThreshold": 10
+        }
+      }
+    },
+    {
+      "description": "get a product that does not exist",
+      "providerStates": [
+        {
+          "name": "no product with that id exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/products/99999999-9999-9999-9999-999999999999",
+        "headers": {}
+      },
+      "response": {
+        "status": 404
+      }
     }
   ],
   "metadata": {

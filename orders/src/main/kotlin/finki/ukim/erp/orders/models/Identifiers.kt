@@ -69,21 +69,23 @@ data class TransactionId(@get:JsonValue override val value: String = "") : Ident
 }
 
 /**
- * A product in the inventory service. Orders does not own products, so this is a reference across
- * a service boundary rather than an identifier of anything in here - inventory keys them by a
- * plain number, and that is what its API expects back.
+ * A product in the inventory service. Orders does not own products, so this is a reference across a
+ * service boundary rather than an identifier of anything in here - and the value is whatever
+ * inventory says it is.
+ *
+ * That value is a string. Inventory keys its products by an opaque identifier it generates (a UUID
+ * in every deployment so far), and it is the segment orders puts in the path of
+ * `GET /api/products/{productId}`. Treating it as a number here would make every one of those calls
+ * a guaranteed 404, so this type says what is actually true: an opaque token owned elsewhere,
+ * carried unaltered.
  */
-data class ProductId(@get:JsonValue override val value: Long = 0L) : Identifier<Long> {
-
-    init {
-        require(value >= 0) { "A product id cannot be negative, got $value" }
-    }
+data class ProductId(@get:JsonValue override val value: String = "") : Identifier<String> {
 
     override fun toString(): String = "Product:$value"
 
     companion object {
         @JvmStatic
         @JsonCreator
-        fun of(value: Long) = ProductId(value)
+        fun of(value: String) = ProductId(value)
     }
 }

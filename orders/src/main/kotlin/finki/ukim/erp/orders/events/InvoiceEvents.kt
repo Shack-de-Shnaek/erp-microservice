@@ -99,4 +99,12 @@ data class InvoiceReversedEvent(
         refundedAmount = refundedAmount,
         reversedAt = occurredAt
     )
+
+    /**
+     * A refund voids the order as surely as a cancellation does, so it says so on the same topic.
+     * No lines: the invoice event does not carry them, and a consumer releasing what it held for
+     * this order works from its own record of the order, not from this message.
+     */
+    override fun toExternalEvents() =
+        super.toExternalEvents() + nullification(NullificationReason.REFUNDED)
 }
