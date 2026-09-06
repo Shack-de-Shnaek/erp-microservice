@@ -1,28 +1,46 @@
 spring:
   application:
     name: orders
-  # Spring Cloud Config-style imports are opt-in since 2020.x: without this line the
-  # consul-config starter is on the classpath but never contributes a property source, so shared
-  # configuration under config/orders/ in Consul's KV store would be silently ignored. `optional:`
-  # keeps the service bootable when Consul is not running (tests, a single-service demo).
-  config:
-    # Quoted: the trailing colon would otherwise be read as a mapping indicator and the
-    # file would fail to parse.
-    import: "optional:consul:"
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5439/orders}
+    username: ${SPRING_DATASOURCE_USERNAME:orders}
+    password: ${SPRING_DATASOURCE_PASSWORD:orders}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Tokens are issued via Keycloak behind the api-gateway; this service only
+          # validates them against Keycloak's JWK set / issuer.
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/erp}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      # Events are serialized to JSON by the publishing handler, so both ends of the wire are text.
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # Every replica must acknowledge. An event that reached one broker which then died is an
+      # announcement other services never hear, and there is no second chance to make it.
+      acks: all
+      retries: 3
+      properties:
+        spring.json.add.type.header: false
+        max.block.ms: 5000
+    consumer:
+      group-id: ${ORDERS_CONSUMER_GROUP:orders-group}
+      # From the beginning, so an event published while this service was down is still processed
+      # when it comes back rather than skipped.
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
   cloud:
     consul:
-      # No placeholder indirection: these are ordinary Spring properties, so a deployment
-      # overrides them with SPRING_CLOUD_CONSUL_HOST / SPRING_CLOUD_CONSUL_PORT - the names every
-      # service in the system uses - rather than with a variable invented here.
-      host: consul
-      port: 8500
-      config:
-        # config/orders/ overrides config/application/, which holds settings shared by every
-        # service in the system.
-        format: yaml
-        prefix: config
-        default-context: application
-        data-key: application.yaml
+      # Host and port are not set here on purpose: they are ordinary Spring properties, so the
+      # deployment supplies them as SPRING_CLOUD_CONSUL_HOST / SPRING_CLOUD_CONSUL_PORT - the
+      # names docker-compose.yml already passes to this service.
       discovery:
         # Registers this instance in Consul's registry so the api-gateway can route to it and
         # Feign can resolve `inventory` by name rather than by host. Consul polls the health
@@ -38,8 +56,15 @@ spring:
         # else entirely and marks this service permanently unhealthy.
         prefer-ip-address: true
         health-check-path: /actuator/health
-        health-check-interval: 10s
+        health-check-interval: 15s
         instance-id: ${spring.application.name}-${random.value}
+      config:
+        # Configuration is held in this file rather than in Consul's KV store, so the
+        # consul-config starter contributes no property source. `import-check` has to be off to
+        # match: with no `spring.config.import: consul:` the check would fail the boot.
+        enabled: false
+        import-check:
+          enabled: false
     circuitbreaker:
       resilience4j:
         # Run the guarded call on the caller's own thread. The default hands it to a time-limiter
@@ -64,40 +89,9 @@ spring:
             # eventually succeeds after half a minute; it is helped by a fast, honest 503.
             connect-timeout: 2000
             read-timeout: 3000
-  datasource:
-    url: jdbc:postgresql://postgres:5432/${POSTGRES_DB:orders}
-    username: ${POSTGRES_USER:postgres}
-    password: ${POSTGRES_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          # Tokens are issued via Keycloak behind the api-gateway; this service only
-          # validates them against Keycloak's JWK set / issuer.
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/erp}
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      # Events are serialized to JSON by the publishing handler, so both ends of the wire are text.
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
-      # Every replica must acknowledge. An event that reached one broker which then died is an
-      # announcement other services never hear, and there is no second chance to make it.
-      acks: all
-    consumer:
-      group-id: ${ORDERS_CONSUMER_GROUP:orders-group}
-      # From the beginning, so an event published while this service was down is still processed
-      # when it comes back rather than skipped.
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+server:
+  port: ${SERVER_PORT:8080}
 
 axon:
   axonserver:
@@ -183,6 +177,3 @@ management:
       exposure:
         # health is what Consul polls; info identifies the build behind an instance.
         include: health,info
-  endpoint:
-    health:
-      show-details: when-authorized

@@ -1,89 +1,167 @@
-# The infrastructure every service in the system shares: the broker they publish to, the registry
-# they find each other through, and the authorization server that issues the tokens they all
-# validate.
-#
-# Each service also has its own compose.yaml for the things only it needs (its Postgres, its own
-# container); this one holds the pieces they have in common, so it comes up once and stays up
-# regardless of which services are running.
-#
-#   docker compose up -d
-#   docker ps
-#
-# Single-node KRaft: no ZooKeeper, and one broker acting as its own controller. Fine for
-# development, and the reason every replication factor below is 1.
 services:
-  broker:
-    image: apache/kafka:latest
-    hostname: broker
-    container_name: broker
-    ports:
-      # Only the host listener is published. Containers on erp_shared reach the broker on
-      # broker:29092; anything running on the developer's machine uses localhost:9092.
-      - 9092:9092
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    restart: unless-stopped
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_NODE_ID: 1
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:29093
-      KAFKA_LISTENERS: PLAINTEXT://broker:29092,CONTROLLER://broker:29093,PLAINTEXT_HOST://0.0.0.0:9092
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
-      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      POSTGRES_DB: inventory
+      POSTGRES_USER: inventory
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker-db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory -d inventory"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
-      erp_shared:
-        aliases:
-          - "kafka"
-          - "broker"
+      - app-network
 
-  # The service registry. Orders registers itself here and resolves `inventory` through it, so
-  # neither service has to be told the other's address.
+  broker:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: broker
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker:29093'
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9092 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
   consul:
     image: hashicorp/consul:latest
     container_name: consul
+    restart: unless-stopped
     ports:
-      # 8500 is both the HTTP API the services use and the UI, at http://localhost:8500.
-      - 8500:8500
-    command: agent -dev -client=0.0.0.0 -ui
+      - "8500:8500"
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
-      erp_shared:
-        aliases:
-          - "consul"
+      - app-network
 
-  # Issues the tokens every service in the system validates. Started with the `erp` realm already
-  # imported, so a fresh `docker compose up` has the roles and users the services expect rather
-  # than an empty realm someone has to configure by hand.
-  #
-  #   staff/staff       -> ADMIN
-  #   customer/customer -> CLIENT
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: quay.io/keycloak/keycloak:24.0.0
     container_name: keycloak
-    command: start-dev --import-realm
+    restart: on-failure
+    command: start-dev
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-      # The issuer in a token has to be byte-identical to what the resource servers expect, and
-      # they are configured with localhost:8080 - so Keycloak must call itself that too.
-      KC_HOSTNAME: http://localhost:8080
-      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
-      KC_HTTP_ENABLED: "true"
-    volumes:
-      - ./keycloak/realm-erp.json:/opt/keycloak/data/import/realm-erp.json:ro
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
     ports:
-      - 8080:8080
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
-      erp_shared:
-        aliases:
-          - "keycloak"
+      - app-network
+
+  inventory-service:
+    build:
+      context: ./inventory
+      dockerfile: Dockerfile
+    container_name: inventory-service
+    restart: on-failure
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: inventory
+      DB_USERNAME: inventory
+      DB_PASSWORD: password
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      CONSUL_HOST: consul
+      CONSUL_PORT: 8500
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  order-service:
+    build:
+      context: ./orders
+      dockerfile: Dockerfile
+    container_name: order-service
+    restart: on-failure
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orders
+      SPRING_DATASOURCE_USERNAME: orders
+      SPRING_DATASOURCE_PASSWORD: orders
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+    ports:
+      - "8089:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    restart: on-failure
+    environment:
+      KEYCLOAK_ISSUER_URL: http://keycloak:8080/realms/finki-services
+      NIMBUS_JWK_SET_URL: http://keycloak:8080/realms/finki-services/protocol/openid-connect/keys
+      CONSUL_HOST: consul
+      CONSUL_PORT: 8500
+    ports:
+      - "8088:8080"
+    depends_on:
+      consul:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      broker:
+        condition: service_healthy
+    networks:
+      - app-network
 
 networks:
-  erp_shared:
+  app-network:
     driver: bridge
-    name: erp_shared
+
+volumes:
+  postgres_data:
