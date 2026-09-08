@@ -22,10 +22,6 @@ import org.springframework.kafka.config.TopicBuilder
 class KafkaTopicsConfig {
 
     @Bean
-    fun orderApprovedTopic(): NewTopic =
-        TopicBuilder.name(KafkaEventConsumer.ORDER_APPROVED_TOPIC).partitions(1).replicas(1).build()
-
-    @Bean
     fun orderNullifiedTopic(): NewTopic =
         TopicBuilder.name(KafkaEventConsumer.ORDER_NULLIFIED_TOPIC).partitions(1).replicas(1).build()
 }

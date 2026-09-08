@@ -1,6 +1,7 @@
 package finki.ukim.erp.orders.clients
 
 import finki.ukim.erp.orders.ProductId
+import finki.ukim.erp.orders.Quantity
 import org.springframework.context.annotation.Primary
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
@@ -29,4 +30,27 @@ class MockInventoryCatalog : InventoryCatalog {
     ).associateBy { it.id }
 
     override fun findProduct(productId: ProductId): InventoryProduct? = catalog[productId.value]
+
+    /**
+     * Reservations are remembered, not merely accepted.
+     *
+     * A mock that said yes to everything and forgot would make the two checks that read a
+     * reservation back - at approval and at invoicing - pass for orders that never reserved
+     * anything, which is exactly the failure this profile exists to let someone rehearse. It does
+     * not, however, decrement anything: the point of the profile is to run without inventory, not
+     * to reimplement it.
+     */
+    private val reservations = java.util.concurrent.ConcurrentHashMap<String, Map<ProductId, Quantity>>()
+
+    override fun reserve(orderRef: String, lines: Map<ProductId, Quantity>) {
+        lines.forEach { (productId, quantity) -> requireAvailable(productId, quantity) }
+        reservations[orderRef] = lines
+    }
+
+    override fun release(orderRef: String) {
+        reservations.remove(orderRef)
+    }
+
+    override fun findReservation(orderRef: String): InventoryReservation? =
+        reservations[orderRef]?.let { InventoryReservation(orderRef, it) }
 }

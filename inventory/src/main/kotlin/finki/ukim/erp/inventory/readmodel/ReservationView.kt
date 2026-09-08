@@ -34,8 +34,23 @@ data class ReservationView(
     val lines: MutableList<ReservationLineEmbeddable> = mutableListOf(),
 )
 
+/**
+ * One line of a reservation: which stock item is holding how much, and for which product.
+ *
+ * Both identifiers are here on purpose, because the two readers of this view want different ones.
+ * Releasing and confirming address the [StockItem][finki.ukim.erp.inventory.domain.stockitem
+ * .StockItem] aggregate, so they need [stockItemId]; the orders service checks a reservation
+ * against the lines of an order, which are written in product ids, so it needs [productId].
+ *
+ * This used to carry one field, named `productId` and holding a stock item id, which every reader
+ * then fed back into a lookup *by product* - so the lookup found nothing and the release it was
+ * supposed to drive silently never happened. Keeping both, correctly named, is what stops that
+ * being possible again.
+ */
 @Embeddable
 data class ReservationLineEmbeddable(
+    @Column(name = "stock_item_id")
+    val stockItemId: String = "",
     @Column(name = "product_id")
     val productId: String = "",
     @Column(name = "quantity")

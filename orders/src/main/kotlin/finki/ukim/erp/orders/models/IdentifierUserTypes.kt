@@ -1,6 +1,7 @@
 package finki.ukim.erp.orders
 
 import org.hibernate.engine.spi.SharedSessionContractImplementor
+import org.hibernate.usertype.EnhancedUserType
 import org.hibernate.usertype.UserType
 import java.io.Serializable
 import java.sql.PreparedStatement
@@ -15,8 +16,11 @@ import java.sql.Types
  * A `UserType` is the supported way to say "this Java type is one varchar", and unlike an
  * `@Embeddable` id it does not turn the primary key into a composite one, which is what lets the
  * aggregate's repository take a row lock when it loads an order.
+ *
+ * Hibernate only accepts a [UserType] as an identifier or discriminator type when it also
+ * implements [EnhancedUserType], because it has to be able to render the value as an SQL literal.
  */
-abstract class StringIdentifierUserType<T : Identifier<String>> : UserType<T> {
+abstract class StringIdentifierUserType<T : Identifier<String>> : EnhancedUserType<T> {
 
     protected abstract fun wrap(value: String): T
 
@@ -54,6 +58,12 @@ abstract class StringIdentifierUserType<T : Identifier<String>> : UserType<T> {
     override fun disassemble(value: T?): Serializable? = value?.value
 
     override fun assemble(cached: Serializable?, owner: Any?): T? = (cached as? String)?.let { wrap(it) }
+
+    override fun toString(value: T): String = value.value
+
+    override fun fromStringValue(sequence: CharSequence): T = wrap(sequence.toString())
+
+    override fun toSqlLiteral(value: T): String = "'" + value.value.replace("'", "''") + "'"
 }
 
 class OrderIdType : StringIdentifierUserType<OrderId>() {

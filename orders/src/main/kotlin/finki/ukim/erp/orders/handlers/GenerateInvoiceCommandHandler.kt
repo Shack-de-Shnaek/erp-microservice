@@ -3,15 +3,15 @@ package finki.ukim.erp.orders.handlers
 import finki.ukim.erp.orders.clients.InventoryCatalog
 import finki.ukim.erp.orders.commands.GenerateInvoiceCommand
 import finki.ukim.erp.orders.Order
-import finki.ukim.erp.orders.util.verifyStockAvailable
+import finki.ukim.erp.orders.util.verifyStockReserved
 import org.axonframework.commandhandling.CommandHandler
 import org.axonframework.modelling.command.Repository
 import org.springframework.stereotype.Component
 
 /**
- * The second point where stock has to be confirmed before the order moves on - invoicing is what
- * commits the goods - and so, like [ApproveOrderCommandHandler], it is handled outside the
- * aggregate.
+ * The second point where the goods behind the order have to be confirmed before it moves on -
+ * invoicing is what bills for them - and so, like [ApproveOrderCommandHandler], it is handled
+ * outside the aggregate, and against the reservation rather than against free stock.
  *
  * The invoice id and invoice number are still minted by
  * [finki.ukim.erp.orders.services.OrderCommandService] and carried on the command: they are
@@ -27,7 +27,7 @@ class GenerateInvoiceCommandHandler(
     @CommandHandler
     fun handle(command: GenerateInvoiceCommand) {
         val order = orderRepository.load(command.orderId.value)
-        inventoryCatalog.verifyStockAvailable(order.invoke { it.requestedQuantities() })
+        inventoryCatalog.verifyStockReserved(command.orderId.value, order.invoke { it.requestedQuantities() })
         order.execute { it.generateInvoice(command) }
     }
 }

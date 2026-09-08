@@ -11,6 +11,7 @@ import finki.ukim.erp.orders.ProductId
 import finki.ukim.erp.orders.Quantity
 import finki.ukim.erp.orders.TransactionId
 import finki.ukim.erp.orders.clients.InventoryCatalog
+import finki.ukim.erp.orders.clients.InventoryReservation
 import finki.ukim.erp.orders.commands.ApproveOrderCommand
 import finki.ukim.erp.orders.commands.CancelOrderCommand
 import finki.ukim.erp.orders.commands.CreateOrderCommand
@@ -24,10 +25,12 @@ import finki.ukim.erp.orders.commands.UpdateOrderItemsCommand
 import finki.ukim.erp.orders.dto.InvoiceLineItemRequest
 import finki.ukim.erp.orders.dto.OrderItemRequest
 import finki.ukim.erp.orders.util.priceItems
+import finki.ukim.erp.orders.util.totalPerProduct
 import finki.ukim.erp.orders.views.InvoiceView
 import finki.ukim.erp.orders.views.OrderView
 import finki.ukim.erp.orders.views.TransactionView
 import org.axonframework.commandhandling.gateway.CommandGateway
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
 import java.util.UUID
@@ -40,9 +43,11 @@ import java.util.UUID
  * JSON into the domain's own types, so a malformed quantity or EMBG is refused here, at the edge,
  * rather than halfway through handling a command.
  *
- * Re-checking stock at approval and invoicing needs the order's current state as well as the
- * inventory service, so it happens one step later, in the external command handlers in
- * [finki.ukim.erp.orders.handlers].
+ * It is also where the goods are claimed. Placing an order asks inventory to put its stock aside
+ * *before* the order is created, synchronously, so that an order which exists is always an order
+ * something is being held for - see [createOrder]. Confirming that the hold is still standing needs
+ * the order's current state as well as the inventory service, so it happens one step later, in the
+ * external command handlers in [finki.ukim.erp.orders.handlers].
  *
  * Commands are dispatched with `sendAndWait`, so by the time one returns the aggregate's row has
  * been written and the follow-up read sees it.
@@ -56,24 +61,106 @@ class OrderCommandService(
     private val inventoryCatalog: InventoryCatalog
 ) {
 
+    /**
+     * Places an order, having first had inventory put the goods aside for it.
+     *
+     * The order of the two steps is the whole point. Inventory is asked to reserve the stock
+     * *before* the order exists, and it is asked as a command - synchronously, with the answer
+     * waited for - because a customer who is told "your order is placed" has been promised goods,
+     * and that promise must not rest on a message still in flight. If inventory will not hold the
+     * stock, no order is created and the caller is told why; there is no pending order to explain
+     * away afterwards.
+     *
+     * The id is minted here rather than by the aggregate so that it can be the reservation's
+     * reference before there is anything to reference. That is also what makes the compensation
+     * below possible: the hold is already addressable by the id of an order that does not exist yet.
+     *
+     * [priceItems] has checked the same things inventory is about to - the products exist, are
+     * still sold, had enough on the shelf a moment ago - and that is not redundant. It prices the
+     * lines, which is needed either way, and it fails per line with a message naming the product,
+     * where inventory's refusal is about the request as a whole. Inventory remains the one that
+     * decides, because only it decides atomically.
+     */
     fun createOrder(name: String, surname: String, customerId: String, items: List<OrderItemRequest>): OrderView {
         val orderId = OrderId.random()
-        commandGateway.sendAndWait<Any>(
-            CreateOrderCommand(
-                orderId = orderId,
-                customer = CustomerName(name, surname),
-                customerId = customerId,
-                items = inventoryCatalog.priceItems(items)
+        val pricedItems = inventoryCatalog.priceItems(items)
+
+        inventoryCatalog.reserve(orderId.value, totalPerProduct(pricedItems))
+        try {
+            commandGateway.sendAndWait<Any>(
+                CreateOrderCommand(
+                    orderId = orderId,
+                    customer = CustomerName(name, surname),
+                    customerId = customerId,
+                    items = pricedItems
+                )
             )
-        )
+        } catch (failure: RuntimeException) {
+            // The order was not created, so nothing will ever release this hold - no cancellation
+            // can be sent for an order that does not exist. Giving it back here is the only chance.
+            releaseQuietly(orderId, "the order could not be created")
+            throw failure
+        }
         return orderViewReadService.findById(orderId)
     }
 
+    /**
+     * Replaces the order's lines, and the hold behind them with it.
+     *
+     * Released before the new lines are reserved, for two reasons. Inventory keys a reservation by
+     * the order and refuses a second one for an order that already holds stock; and releasing first
+     * puts the order's *own* goods back on the shelf while its new lines are judged, so an order for
+     * the last ten of something can still be amended to ten of the same thing.
+     *
+     * That leaves a window in which the order holds nothing, and another customer can take the
+     * stock in between. Losing the race costs the amendment, not the order: the previous hold is
+     * put back and the order stands as it was. Closing the window properly needs an amend operation
+     * on inventory's side that swaps the lines under one lock, which is inventory's to offer.
+     */
     fun updateOrderItems(orderId: OrderId, items: List<OrderItemRequest>): OrderView {
-        commandGateway.sendAndWait<Any>(
-            UpdateOrderItemsCommand(orderId = orderId, items = inventoryCatalog.priceItems(items))
-        )
+        val pricedItems = inventoryCatalog.priceItems(items)
+        val heldBefore = inventoryCatalog.findReservation(orderId.value)
+
+        inventoryCatalog.release(orderId.value)
+        try {
+            inventoryCatalog.reserve(orderId.value, totalPerProduct(pricedItems))
+            commandGateway.sendAndWait<Any>(UpdateOrderItemsCommand(orderId = orderId, items = pricedItems))
+        } catch (failure: RuntimeException) {
+            restore(orderId, heldBefore)
+            throw failure
+        }
         return orderViewReadService.findById(orderId)
+    }
+
+    /**
+     * Puts back the hold an amendment gave up, after the amendment failed.
+     *
+     * Best effort, and it says so: the failure being compensated is the one the caller needs to
+     * hear about, and burying it under a second one from the compensation would help nobody. What
+     * a failure here leaves behind - an order with no reservation - is the state
+     * [finki.ukim.erp.orders.util.verifyStockReserved] exists to catch, so the order cannot be
+     * approved or invoiced on stock nobody is holding. It is logged at error because it needs a
+     * person.
+     */
+    private fun restore(orderId: OrderId, held: InventoryReservation?) {
+        if (held == null) {
+            return
+        }
+        runCatching {
+            inventoryCatalog.release(orderId.value)
+            inventoryCatalog.reserve(orderId.value, held.quantitiesByProduct)
+        }.onFailure { failure ->
+            logger.error(
+                "Could not restore the previous reservation for order {}; it now holds no stock",
+                orderId,
+                failure
+            )
+        }
+    }
+
+    private fun releaseQuietly(orderId: OrderId, why: String) {
+        runCatching { inventoryCatalog.release(orderId.value) }
+            .onFailure { logger.error("Could not release the stock held for order {} after {}", orderId, why, it) }
     }
 
     fun approveOrder(orderId: OrderId): OrderView {
@@ -151,6 +238,10 @@ class OrderCommandService(
             ReverseInvoiceCommand(orderId = orderId, reversalTransactionId = TransactionId.random())
         )
         return invoiceViewReadService.findById(invoiceId)
+    }
+
+    private companion object {
+        val logger = LoggerFactory.getLogger(OrderCommandService::class.java)
     }
 
     private fun generateInvoiceNumber(): InvoiceNumber =

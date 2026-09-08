@@ -6,6 +6,7 @@ import finki.ukim.erp.orders.Quantity
 import finki.ukim.erp.orders.clients.InventoryCatalog
 import finki.ukim.erp.orders.commands.PricedItem
 import finki.ukim.erp.orders.dto.OrderItemRequest
+import finki.ukim.erp.orders.exceptions.StockNotReservedException
 
 /**
  * Turns requested items into priced ones, having checked each product exists and can cover the
@@ -27,12 +28,36 @@ fun InventoryCatalog.priceItems(items: List<OrderItemRequest>): List<PricedItem>
 }
 
 /**
- * Re-checked at every point stock could have moved since it was last verified: order approval and
- * invoice generation. Both are driven by the external command handlers in
- * [finki.ukim.erp.orders.handlers], which read the quantities straight off the order they are
- * about to act on.
+ * What the reservation actually holds, checked at the two points an order moves on: approval and
+ * invoicing. Both are driven by the external command handlers in [finki.ukim.erp.orders.handlers],
+ * which read the quantities straight off the order they are about to act on.
+ *
+ * It asks about the *reservation* rather than about availability, and the difference is not
+ * cosmetic. The order's own goods were put aside when it was placed, so they no longer count as
+ * available - asking "is there enough free stock for this order" would be asking whether a
+ * *second* copy of it could be filled, and an order for the last of something would fail its own
+ * approval. What matters here is only whether the hold taken at placement is still there.
+ *
+ * It can be gone: an amendment that could not be re-reserved, a release that ran when it should
+ * not have, an inventory database restored from behind. In every one of those the order is no
+ * longer backed by goods, and approving or invoicing it would promise what nobody is holding.
  */
-fun InventoryCatalog.verifyStockAvailable(quantitiesByProduct: Map<ProductId, Quantity>) {
-    val products = findProducts(quantitiesByProduct.keys)
-    quantitiesByProduct.forEach { (productId, quantity) -> checkAvailable(productId, quantity, products) }
+fun InventoryCatalog.verifyStockReserved(orderRef: String, quantitiesByProduct: Map<ProductId, Quantity>) {
+    val reservation = findReservation(orderRef)
+        ?: throw StockNotReservedException("Inventory holds no reservation for order $orderRef")
+
+    quantitiesByProduct.forEach { (productId, quantity) ->
+        val held = reservation.heldFor(productId)
+        if (held < quantity.value) {
+            throw StockNotReservedException(
+                "Order $orderRef needs ${quantity.value} of product $productId, " +
+                    "but inventory is holding only $held"
+            )
+        }
+    }
 }
+
+/** The total each product is wanted in, so an order naming one twice is held for the sum of both. */
+fun totalPerProduct(items: List<PricedItem>): Map<ProductId, Quantity> =
+    items.groupBy { it.productId }
+        .mapValues { (_, lines) -> Quantity(lines.sumOf { it.quantity.value }) }

@@ -68,7 +68,10 @@ services:
     image: quay.io/keycloak/keycloak:24.0.0
     container_name: keycloak
     restart: on-failure
-    command: start-dev
+    # --import-realm reads /opt/keycloak/data/import on startup and creates the realm if it is
+    # not there yet. It never overwrites an existing one, so editing realm-erp.json after the
+    # first boot has no effect until the realm is deleted (or the postgres volume is dropped).
+    command: start-dev --import-realm
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
@@ -76,11 +79,37 @@ services:
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: keycloak
+      # Pins the issuer and every browser-facing URL to localhost:8080, whichever hostname the
+      # request came in on. Without it Keycloak builds URLs from the request: a browser arriving
+      # on localhost:8080 gets tokens issued by http://localhost:8080/realms/erp, the gateway
+      # exchanging the code over the Docker network gets http://keycloak:8080/realms/erp, and the
+      # id token is then rejected for an issuer mismatch.
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8080
+      KC_HOSTNAME_STRICT: "false"
+      # ...while backchannel calls (token exchange, JWKS) still go to keycloak:8080 from inside
+      # the network and are answered under that same pinned issuer.
+      KC_HOSTNAME_STRICT_BACKCHANNEL: "false"
     ports:
       - "8080:8080"
+    volumes:
+      - ./keycloak/realm-erp.json:/opt/keycloak/data/import/realm-erp.json:ro
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      # The image ships no curl or wget, so the check talks to the realm endpoint over bash's
+      # own /dev/tcp. It passes only once the realm exists, which is what the services behind it
+      # actually need - a Keycloak that is listening but still importing is not ready.
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /realms/erp HTTP/1.1\\r\\nHost: localhost:8080\\r\\nConnection: close\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q '200'",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
     networks:
       - app-network
 
@@ -122,6 +151,10 @@ services:
       SPRING_DATASOURCE_USERNAME: orders
       SPRING_DATASOURCE_PASSWORD: orders
       KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      # The same realm the gateway validates against. Tokens arrive here relayed by the gateway,
+      # so a mismatch between these two is a 401 on every request that got past the front door.
+      KEYCLOAK_ISSUER_URI: http://localhost:8080/realms/erp
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/erp/protocol/openid-connect/certs
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
     ports:
@@ -143,8 +176,16 @@ services:
     container_name: api-gateway
     restart: on-failure
     environment:
-      KEYCLOAK_ISSUER_URL: http://keycloak:8080/realms/finki-services
-      NIMBUS_JWK_SET_URL: http://keycloak:8080/realms/finki-services/protocol/openid-connect/keys
+      # The issuer as it is written into tokens (browser-facing), and the key set as this
+      # container reaches it (over the Docker network). The two hostnames differ on purpose; see
+      # KC_HOSTNAME on the keycloak service.
+      KEYCLOAK_ISSUER_URL: http://localhost:8080/realms/erp
+      NIMBUS_JWK_SET_URL: http://keycloak:8080/realms/erp/protocol/openid-connect/certs
+      KEYCLOAK_AUTHORIZATION_URL: http://localhost:8080/realms/erp/protocol/openid-connect/auth
+      KEYCLOAK_TOKEN_URL: http://keycloak:8080/realms/erp/protocol/openid-connect/token
+      KEYCLOAK_USER_INFO_URL: http://keycloak:8080/realms/erp/protocol/openid-connect/userinfo
+      KEYCLOAK_CLIENT_ID: erp-gateway
+      KEYCLOAK_CLIENT_SECRET: erp-gateway-secret
       CONSUL_HOST: consul
       CONSUL_PORT: 8500
     ports:
@@ -153,8 +194,35 @@ services:
       consul:
         condition: service_healthy
       keycloak:
-        condition: service_started
+        condition: service_healthy
       broker:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  mcp-server:
+    build:
+      context: ./mcp-server
+      dockerfile: Dockerfile
+    container_name: mcp-server
+    restart: on-failure
+    environment:
+      # The gateway, addressed by its service name on this network. Every tool call goes through
+      # it, so the MCP server needs no route table of its own and no service's port.
+      GATEWAY_URL: http://api-gateway:8080
+      # Tokens are collected over the Docker network; the `iss` they are stamped with is still the
+      # browser-facing localhost:8080, because KC_HOSTNAME pins it. That is what makes a token
+      # fetched here acceptable to a gateway that validates against localhost:8080.
+      KEYCLOAK_TOKEN_URL: http://keycloak:8080/realms/erp/protocol/openid-connect/token
+      MCP_CLIENT_ID: erp-mcp
+      MCP_CLIENT_SECRET: erp-mcp-secret
+      # Set ERP_ENABLE_WRITES to false to serve only the read tools - the write ones are then not
+      # registered at all, so a model on the other end cannot see or call them.
+      ERP_ENABLE_WRITES: "true"
+    ports:
+      - "8765:8765"
+    depends_on:
+      keycloak:
         condition: service_healthy
     networks:
       - app-network

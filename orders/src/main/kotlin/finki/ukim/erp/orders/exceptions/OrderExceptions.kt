@@ -27,6 +27,22 @@ class InsufficientStockException(productId: ProductId, quantity: Quantity) :
 class ProductNotFoundException(productId: ProductId) :
     RuntimeException("Product with id $productId does not exist in inventory")
 
+/** The product is real but the catalogue has withdrawn it, so nothing new may be ordered of it. */
+class ProductNotAvailableException(productId: ProductId) :
+    RuntimeException("Product with id $productId is no longer available and cannot be ordered")
+
+/**
+ * Inventory would not put the goods aside, and said why.
+ *
+ * The reason is inventory's own message rather than one composed here: it knows what was actually
+ * wrong - which product, how much was left - and paraphrasing it would only lose that.
+ */
+class StockReservationRejectedException(orderRef: String, reason: String) :
+    RuntimeException("Stock could not be reserved for order $orderRef: $reason")
+
+/** Inventory is no longer holding the goods an order was accepted on. */
+class StockNotReservedException(message: String) : RuntimeException(message)
+
 class InvalidOrderStateException(message: String) : RuntimeException(message)
 
 class OrderNotOwnedException(orderId: OrderId) :

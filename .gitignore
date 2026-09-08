@@ -1,2 +1,5 @@
 **/*.db
 __pycache__/
+
+# Local virtualenv for the MCP server; the container builds its own.
+.venv/

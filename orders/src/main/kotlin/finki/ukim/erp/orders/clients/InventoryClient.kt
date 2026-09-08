@@ -3,8 +3,11 @@ package finki.ukim.erp.orders.clients
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import finki.ukim.erp.orders.clients.fallbacks.InventoryClientFallbackFactory
 import org.springframework.cloud.openfeign.FeignClient
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import java.math.BigDecimal
 
 /**
@@ -28,7 +31,14 @@ data class InventoryProduct(
     val id: String,
     val name: String,
     val price: BigDecimal,
-    val availableQuantity: Int
+    val availableQuantity: Int,
+    /**
+     * Whether the catalogue still sells it. A withdrawn product may sit on a full shelf and still
+     * not be orderable, so availability alone never answers "can this be ordered" - inventory
+     * refuses to reserve stock for an inactive product, and an order that got as far as asking
+     * would be rejected there rather than here.
+     */
+    val active: Boolean = true
 )
 
 /** Inventory's `ProductView`, as this service reads it. */
@@ -39,6 +49,38 @@ data class InventoryProductResponse(
     val sku: String? = null,
     val unitOfMeasure: String? = null,
     val status: String? = null
+)
+
+/** One line of a reservation request: how much of a product this order needs held for it. */
+data class ReservationLineRequest(
+    val productId: String,
+    val quantity: Int
+)
+
+/** The body of `POST /api/reservations`: an order's whole hold, taken in one call. */
+data class CreateReservationRequest(
+    val orderRef: String,
+    val lines: List<ReservationLineRequest>
+)
+
+/**
+ * Inventory's `ReservationView` - what it is holding for one order.
+ *
+ * `stockItemId` is inventory's own addressing and orders has no use for it; `productId` is what an
+ * order's lines are written in, which is what makes this answerable against an order at all.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class InventoryReservationResponse(
+    val orderRef: String,
+    val status: String? = null,
+    val lines: List<InventoryReservationLine> = emptyList()
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class InventoryReservationLine(
+    val productId: String,
+    val quantity: Int,
+    val stockItemId: String? = null
 )
 
 /**
@@ -94,4 +136,27 @@ interface InventoryClient {
      */
     @GetMapping("/api/stock/{productId}")
     fun getStock(@PathVariable("productId") productId: String): InventoryStockResponse
+
+    /**
+     * Puts an order's stock aside, all lines or none.
+     *
+     * A command in the proper sense: orders is not telling inventory something has happened, it is
+     * asking for something to be done and cannot proceed without the answer. Inventory answers 400
+     * when it will not - an unknown or withdrawn product, or not enough left - and the body carries
+     * the reason, which is the half a caller can act on.
+     */
+    // `consumes` is not decoration. Without it Feign has no content type for the body and falls
+    // back to form encoding, so a perfectly good JSON payload arrives labelled
+    // `application/x-www-form-urlencoded` and Spring refuses it with a 415 before any of this
+    // service's code runs. The GETs above need no such thing - they have no body to label.
+    @PostMapping("/api/reservations", consumes = ["application/json"])
+    fun createReservation(@RequestBody request: CreateReservationRequest): InventoryReservationResponse
+
+    /** Gives back everything held for the order. 404 when there is nothing held. */
+    @DeleteMapping("/api/reservations/{orderRef}")
+    fun releaseReservation(@PathVariable("orderRef") orderRef: String)
+
+    /** What inventory is currently holding for the order, or 404 if it holds nothing. */
+    @GetMapping("/api/reservations/{orderRef}")
+    fun getReservation(@PathVariable("orderRef") orderRef: String): InventoryReservationResponse
 }

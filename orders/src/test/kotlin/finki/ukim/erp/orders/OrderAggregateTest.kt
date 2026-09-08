@@ -1,6 +1,6 @@
 package finki.ukim.erp.orders
 
-import finki.ukim.erp.orders.clients.InventoryCatalog
+import finki.ukim.erp.orders.clients.FakeInventoryCatalog
 import finki.ukim.erp.orders.clients.InventoryProduct
 import finki.ukim.erp.orders.commands.ApproveOrderCommand
 import finki.ukim.erp.orders.commands.CancelOrderCommand
@@ -75,9 +75,13 @@ class OrderAggregateTest {
         fixture.registerAnnotatedCommandHandler(GenerateInvoiceCommandHandler(fixture.repository, alwaysInStock))
     }
 
-    private val alwaysInStock = object : InventoryCatalog {
-        override fun findProduct(productId: ProductId) =
-            InventoryProduct(productId.value, "product-$productId", BigDecimal("25.00"), Int.MAX_VALUE)
+    /**
+     * Stock is never the reason a command fails here, so the fake is handed the reservation these
+     * handlers now check for before each one runs. What is under test is the aggregate's rules
+     * about *when* approval and invoicing are allowed; the stock half is StockRecheckTest's.
+     */
+    private val alwaysInStock = FakeInventoryCatalog().apply {
+        reservations[orderId.value] = mapOf(ProductId("product-1") to Quantity(Int.MAX_VALUE))
     }
 
     // ------------------------------------------------------------------ state builders

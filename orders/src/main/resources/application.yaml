@@ -15,7 +15,14 @@ spring:
         jwt:
           # Tokens are issued via Keycloak behind the api-gateway; this service only
           # validates them against Keycloak's JWK set / issuer.
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/erp}
+          #
+          # The two are configured separately, and both are needed. `issuer-uri` alone would make
+          # Spring fetch the provider metadata at startup from the issuer's own host - which is
+          # the browser-facing one (localhost:8080), unreachable from inside this container. With
+          # `jwk-set-uri` also set, the keys are fetched from the address this service can reach
+          # and the issuer string is only ever compared against the `iss` claim, never dialled.
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/erp}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/erp/protocol/openid-connect/certs}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -57,7 +64,15 @@ spring:
         prefer-ip-address: true
         health-check-path: /actuator/health
         health-check-interval: 15s
-        instance-id: ${spring.application.name}-${random.value}
+        # Stable across restarts, deliberately. With a random suffix every boot registers a
+        # *new* instance and the previous one is left behind: Consul only drops a registration
+        # whose health check fails, and a container IP freed by the old instance is handed to
+        # whatever starts next - here the gateway, which answers /actuator/health 200 and so keeps
+        # the dead entry looking healthy for ever. The gateway then round-robins half of every
+        # service's traffic into a container that has no such route, and one request in two comes
+        # back 404. Naming the instance after what it is means a restart replaces its own
+        # registration instead of adding one.
+        instance-id: ${spring.application.name}-${server.port}
       config:
         # Configuration is held in this file rather than in Consul's KV store, so the
         # consul-config starter contributes no property source. `import-check` has to be off to

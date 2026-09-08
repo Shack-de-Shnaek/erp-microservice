@@ -11,31 +11,44 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 
+/**
+ * The order-facing view of what stock is being held, keyed by the order that asked for it.
+ *
+ * The stock item's own product is resolved here rather than carried on the event: `StockItem`
+ * announces a reservation in terms of itself, and which product that item stocks is a fact this
+ * side already holds. Looking it up once, at projection time, is what lets a reader ask "is this
+ * order holding product X" without a second round trip per line.
+ */
 @Component
 class ReservationProjection(
     private val reservationViewRepository: ReservationViewRepository,
+    private val stockItemViewRepository: StockItemViewRepository,
 ) {
 
     @EventHandler
     @Transactional
     fun on(event: StockReservedEvent) {
+        val line = ReservationLineEmbeddable(
+            stockItemId = event.stockItemId.value,
+            // Empty only if the stock item's own projection has not landed, which cannot happen
+            // for an item that just accepted a reservation: it was created before it could.
+            productId = stockItemViewRepository.findById(event.stockItemId.value)
+                .map { it.productId }
+                .orElse(""),
+            quantity = event.quantity.amount,
+        )
         val existing = reservationViewRepository.findByOrderRef(event.orderRef)
         if (existing != null) {
-            val updated = existing.copy(
-                lines = existing.lines.toMutableList().apply {
-                    add(ReservationLineEmbeddable(event.stockItemId.value, event.quantity.amount))
-                },
+            reservationViewRepository.save(
+                existing.copy(lines = existing.lines.toMutableList().apply { add(line) }),
             )
-            reservationViewRepository.save(updated)
         } else {
             reservationViewRepository.save(
                 ReservationView(
                     orderRef = event.orderRef,
                     status = "ACTIVE",
                     createdAt = Instant.now().toString(),
-                    lines = mutableListOf(
-                        ReservationLineEmbeddable(event.stockItemId.value, event.quantity.amount),
-                    ),
+                    lines = mutableListOf(line),
                 ),
             )
         }
@@ -46,7 +59,7 @@ class ReservationProjection(
     fun on(event: StockReservationReleasedEvent) {
         val existing = reservationViewRepository.findByOrderRef(event.orderRef) ?: return
         val updatedLines = existing.lines.filter {
-            it.productId != event.stockItemId.value
+            it.stockItemId != event.stockItemId.value
         }.toMutableList()
         if (updatedLines.isEmpty()) {
             reservationViewRepository.delete(existing)

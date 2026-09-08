@@ -1,78 +1,48 @@
 {
   "realm": "erp",
+  "displayName": "ERP",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "accessTokenLifespan": 3600,
+  "ssoSessionIdleTimeout": 7200,
   "roles": {
     "realm": [
       {
         "name": "ADMIN",
-        "description": "Staff: approves, rejects and invoices orders"
+        "description": "May approve and reject orders. Maps to ROLE_ADMIN via the realm_access.roles claim."
       },
       {
-        "name": "CLIENT",
-        "description": "Customer: places, pays for and cancels their own orders"
+        "name": "CUSTOMER",
+        "description": "May place, read and cancel their own orders."
       }
     ]
   },
-  "clients": [
-    {
-      "clientId": "erp-cli",
-      "name": "Command-line / test client",
-      "enabled": true,
-      "publicClient": true,
-      "standardFlowEnabled": false,
-      "directAccessGrantsEnabled": true,
-      "serviceAccountsEnabled": false,
-      "protocol": "openid-connect",
-      "attributes": {
-        "access.token.lifespan": "3600"
-      }
-    },
-    {
-      "clientId": "erp-gateway",
-      "name": "API gateway",
-      "enabled": true,
-      "publicClient": false,
-      "secret": "gateway-secret",
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
-      "protocol": "openid-connect",
-      "redirectUris": [
-        "http://localhost:8080/*",
-        "http://localhost:8000/*"
-      ],
-      "webOrigins": [
-        "*"
-      ]
-    }
-  ],
   "users": [
     {
-      "username": "staff",
+      "username": "admin",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Ana",
-      "lastName": "Staff",
+      "firstName": "ERP",
+      "lastName": "Administrator",
+      "email": "admin@erp.local",
       "credentials": [
         {
           "type": "password",
-          "value": "staff",
+          "value": "admin",
           "temporary": false
         }
       ],
-      "realmRoles": [
-        "ADMIN"
-      ],
-      "email": "staff@erp.local",
-      "requiredActions": []
+      "realmRoles": ["ADMIN", "CUSTOMER"]
     },
     {
       "username": "customer",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "John",
-      "lastName": "Doe",
+      "firstName": "Sample",
+      "lastName": "Customer",
+      "email": "customer@erp.local",
       "credentials": [
         {
           "type": "password",
@@ -80,11 +50,56 @@
           "temporary": false
         }
       ],
-      "realmRoles": [
-        "CLIENT"
+      "realmRoles": ["CUSTOMER"]
+    },
+    {
+      "username": "service-account-erp-mcp",
+      "enabled": true,
+      "serviceAccountClientId": "erp-mcp",
+      "realmRoles": ["ADMIN", "CUSTOMER"]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "erp-gateway",
+      "name": "API Gateway (browser login)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "erp-gateway-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8088/login/oauth2/code/keycloak",
+        "http://localhost:8088/*"
       ],
-      "email": "customer@erp.local",
-      "requiredActions": []
+      "webOrigins": ["http://localhost:8088"],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:8088/*"
+      }
+    },
+    {
+      "clientId": "erp-cli",
+      "name": "Command line / API clients",
+      "description": "Public client with direct access grants, for fetching a token with curl.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true
+    },
+    {
+      "clientId": "erp-mcp",
+      "name": "MCP server (service account)",
+      "description": "Confidential client for the MCP server. Service accounts only: it has no user behind it, so it takes a token with the client-credentials grant and never a login. Its own account holds ADMIN and CUSTOMER, which is what lets the write tools approve an order and place one.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "erp-mcp-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
     }
   ]
 }

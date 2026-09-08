@@ -1,12 +1,19 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "inventory": {
+    "erp": {
       "type": "local",
       "command": [".venv/bin/python", "server.py"],
       "cwd": "mcp-server",
       "environment": {
-        "INVENTORY_URL": "http://localhost:8081"
+        // The gateway, on the host. Both services are reached through it, so there is one URL
+        // here rather than one per service.
+        "GATEWAY_URL": "http://localhost:8088",
+        "KEYCLOAK_TOKEN_URL": "http://localhost:8080/realms/erp/protocol/openid-connect/token",
+        "MCP_CLIENT_ID": "erp-mcp",
+        "MCP_CLIENT_SECRET": "erp-mcp-secret",
+        // Set to "false" for the read tools only - the write ones are then not registered at all.
+        "ERP_ENABLE_WRITES": "true"
       }
     }
   }

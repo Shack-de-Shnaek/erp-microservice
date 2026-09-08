@@ -1,12 +1,9 @@
 package finki.ukim.erp.inventory.integration
 
 import finki.ukim.erp.inventory.domain.stockitem.ReleaseReservationCommand
-import finki.ukim.erp.inventory.domain.stockitem.ReserveStockCommand
 import finki.ukim.erp.inventory.domain.stockitem.StockItemId
 import finki.ukim.erp.inventory.query.reservation.FindReservationByOrderRefQuery
-import finki.ukim.erp.inventory.query.stockitem.FindStockItemByProductIdQuery
 import finki.ukim.erp.inventory.readmodel.ReservationView
-import finki.ukim.erp.inventory.readmodel.StockItemView
 import org.axonframework.commandhandling.gateway.CommandGateway
 import org.axonframework.messaging.responsetypes.ResponseTypes
 import org.axonframework.queryhandling.QueryGateway
@@ -14,12 +11,19 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
- * What stock does as an order moves through its life in the other service.
+ * What stock does when an order ends in the other service.
  *
- * Two moments matter here and no others. An order being *approved* is the point goods are committed
- * to a customer, so that is when stock is reserved - not when it is created, which commits nothing
- * and may still be rejected. An order being *nullified* - cancelled, rejected, refunded, orders
- * says all three in the same words - is the point the hold ends, whatever the reason.
+ * Only one moment is left here, and the shape of the split is the point. Taking stock is a
+ * **command**: orders asks for it synchronously, at the moment the order is placed, and needs the
+ * answer before it can accept the order at all - a customer who is told "your order is placed" has
+ * been promised goods, and that promise must not rest on a message that may still be in flight.
+ * Giving stock back is an **event**: nobody is waiting on the answer, the order is already over
+ * whichever way it ended, and it has to happen even if orders is not in a position to ask.
+ *
+ * So reservation arrived here as `POST /api/reservations` before the order existed, and release
+ * arrives as `order.nullified` - cancelled, rejected, refunded, orders says all three in the same
+ * words - after it is finished. There is no longer anything to do on `order.approved`: the goods
+ * were put aside when the order was placed and approval only decides what happens to them.
  *
  * No Kafka in here. [finki.ukim.erp.inventory.infrastructure.kafka.KafkaEventConsumer] deals with
  * the transport and hands this translated types, so the decisions can be read and tested without a
@@ -32,29 +36,6 @@ class OrderLifecycleSaga(
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
-
-    fun onOrderApproved(order: ApprovedOrder) {
-        order.lines.forEach { line ->
-            val stockItemId = stockItemIdForProduct(line.productId.value)
-            if (stockItemId == null) {
-                log.warn(
-                    "Skipping reservation for order={} product={}: no stock item exists",
-                    order.orderRef,
-                    line.productId.value,
-                )
-                return@forEach
-            }
-            log.info(
-                "Reserving stock for order={} product={} quantity={}",
-                order.orderRef,
-                line.productId.value,
-                line.quantity.amount,
-            )
-            commandGateway.sendAndWait<Any>(
-                ReserveStockCommand(stockItemId, order.orderRef, line.quantity),
-            )
-        }
-    }
 
     /**
      * Releases everything held for the order, by the order's own reference.
@@ -91,23 +72,12 @@ class OrderLifecycleSaga(
             reservation.lines.size,
         )
 
+        // Straight off the reservation, with no lookup in between: the line already names the stock
+        // item that is holding the goods, which is the thing the command has to address.
         reservation.lines.forEach { line ->
-            val stockItemId = stockItemIdForProduct(line.productId)
-            if (stockItemId == null) {
-                log.warn(
-                    "Cannot release order={} product={}: no stock item exists",
-                    order.orderRef,
-                    line.productId,
-                )
-                return@forEach
-            }
-            commandGateway.sendAndWait<Any>(ReleaseReservationCommand(stockItemId, order.orderRef))
+            commandGateway.sendAndWait<Any>(
+                ReleaseReservationCommand(StockItemId.fromString(line.stockItemId), order.orderRef),
+            )
         }
     }
-
-    private fun stockItemIdForProduct(productId: String): StockItemId? =
-        queryGateway.query(
-            FindStockItemByProductIdQuery(productId),
-            ResponseTypes.instanceOf(StockItemView::class.java),
-        ).get()?.let { StockItemId.fromString(it.stockItemId) }
 }

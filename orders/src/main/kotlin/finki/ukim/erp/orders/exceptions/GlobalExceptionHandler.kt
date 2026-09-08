@@ -12,11 +12,17 @@ data class ApiError(val status: Int, val message: String)
 @RestControllerAdvice
 class GlobalExceptionHandler {
 
+    /**
+     * A resource the caller asked for that is not there - and only that.
+     *
+     * Nothing about the *contents* of a request belongs here, however missing the thing it names.
+     * A product id that inventory has never heard of is a bad line in a request the caller can fix,
+     * not a missing page, so it is a 400 below: the URL `/orders` was found perfectly well.
+     */
     @ExceptionHandler(
         OrderNotFoundException::class,
         InvoiceNotFoundException::class,
-        TransactionNotFoundException::class,
-        ProductNotFoundException::class
+        TransactionNotFoundException::class
     )
     fun handleNotFound(ex: RuntimeException): ResponseEntity<ApiError> =
         ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError(HttpStatus.NOT_FOUND.value(), ex.message ?: ""))
@@ -35,8 +41,17 @@ class GlobalExceptionHandler {
         ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
             .body(ApiError(HttpStatus.SERVICE_UNAVAILABLE.value(), ex.message ?: ""))
 
+    /**
+     * Everything the caller got wrong, each carrying the reason. Where the reason came from
+     * inventory it is passed through in inventory's own words - it knows which product ran short
+     * and by how much, and rewording it here would only lose that.
+     */
     @ExceptionHandler(
         InsufficientStockException::class,
+        ProductNotFoundException::class,
+        ProductNotAvailableException::class,
+        StockReservationRejectedException::class,
+        StockNotReservedException::class,
         InvalidOrderStateException::class,
         OverpaymentException::class,
         InvoiceAlreadyExistsException::class,

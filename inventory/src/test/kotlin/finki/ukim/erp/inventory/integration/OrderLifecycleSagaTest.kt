@@ -3,13 +3,10 @@ package finki.ukim.erp.inventory.integration
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import finki.ukim.erp.inventory.domain.stockitem.ReleaseReservationCommand
-import finki.ukim.erp.inventory.domain.stockitem.ReserveStockCommand
 import finki.ukim.erp.inventory.infrastructure.kafka.KafkaEventConsumer
 import finki.ukim.erp.inventory.query.reservation.FindReservationByOrderRefQuery
-import finki.ukim.erp.inventory.query.stockitem.FindStockItemByProductIdQuery
 import finki.ukim.erp.inventory.readmodel.ReservationLineEmbeddable
 import finki.ukim.erp.inventory.readmodel.ReservationView
-import finki.ukim.erp.inventory.readmodel.StockItemView
 import org.axonframework.commandhandling.gateway.CommandGateway
 import org.axonframework.messaging.responsetypes.ResponseType
 import org.axonframework.queryhandling.QueryGateway
@@ -23,6 +20,10 @@ import java.util.concurrent.CompletableFuture
 
 /**
  * What this service does with the messages the orders service actually publishes.
+ *
+ * Only one message is left to react to. Stock is taken by a synchronous `POST /api/reservations`
+ * while the order is being placed, so `order.approved` no longer says anything to this service;
+ * what remains here is giving the goods back when an order ends.
  *
  * The gateways are hand-written stubs rather than mocks: what these tests are about is which
  * commands come out for a given message, and a list of captured commands says that more plainly
@@ -50,15 +51,6 @@ class OrderLifecycleSagaTest {
     private val queryGateway: QueryGateway = mock(QueryGateway::class.java).also { gateway ->
         `when`(gateway.query(any<Any>(), any<ResponseType<Any>>())).thenAnswer { invocation ->
             val answer: Any? = when (val query = invocation.getArgument<Any>(0)) {
-                // Every product is assumed to have a stock item, named after it so the assertions
-                // can say which product a command was for.
-                is FindStockItemByProductIdQuery -> StockItemView(
-                    stockItemId = "stock-${query.productId}",
-                    productId = query.productId,
-                    onHand = 100,
-                    reserved = 0,
-                )
-
                 is FindReservationByOrderRefQuery -> reservation?.takeIf { it.orderRef == query.orderRef }
                 else -> null
             }
@@ -69,22 +61,9 @@ class OrderLifecycleSagaTest {
     private val saga = OrderLifecycleSaga(commandGateway, queryGateway)
     private val consumer = KafkaEventConsumer(ObjectMapper().registerKotlinModule(), OrderEventTranslator(), saga)
 
-    @Test
-    fun `an approved order reserves every line under the order's own reference`() {
-        consumer.onOrderApproved(
-            """
-            {"orderId":"$orderRef",
-             "lines":[{"productId":"$productId","quantity":5},
-                      {"productId":"$otherProductId","quantity":2}],
-             "approvedAt":"2026-09-05T10:15:30"}
-            """.trimIndent()
-        )
-
-        val reservations = sentCommands.filterIsInstance<ReserveStockCommand>()
-        assertEquals(2, reservations.size)
-        assertEquals(listOf(orderRef, orderRef), reservations.map { it.orderRef })
-        assertEquals(listOf(5, 2), reservations.map { it.quantity.amount })
-    }
+    /** A held line, as the reservation projection records one: both ids, because both are read. */
+    private fun heldLine(productId: String, quantity: Int) =
+        ReservationLineEmbeddable(stockItemId = "stock-$productId", productId = productId, quantity = quantity)
 
     /**
      * The lines released are this service's own record of what it reserved, not the ones on the
@@ -95,10 +74,7 @@ class OrderLifecycleSagaTest {
     fun `a nullified order releases what this service actually reserved, not what the message lists`() {
         reservation = ReservationView(
             orderRef = orderRef,
-            lines = mutableListOf(
-                ReservationLineEmbeddable(productId, 5),
-                ReservationLineEmbeddable(otherProductId, 2),
-            ),
+            lines = mutableListOf(heldLine(productId, 5), heldLine(otherProductId, 2)),
         )
 
         consumer.onOrderNullified(
@@ -116,6 +92,26 @@ class OrderLifecycleSagaTest {
             releases.map { it.stockItemId.value }.toSet(),
         )
         assertEquals(listOf(orderRef, orderRef), releases.map { it.orderRef })
+    }
+
+    /**
+     * The command addresses the stock item the reservation line already names. It used to be looked
+     * up by product id from a field that holds a *stock item* id, so the lookup found nothing and
+     * every release was skipped with a warning - the hold stayed on the shelf for good.
+     */
+    @Test
+    fun `a release addresses the stock item holding the goods, with no lookup in between`() {
+        reservation = ReservationView(
+            orderRef = orderRef,
+            lines = mutableListOf(heldLine(productId, 5)),
+        )
+
+        consumer.onOrderNullified(
+            """{"orderId":"$orderRef","reason":"CANCELLED","lines":[],"nullifiedAt":"2026-09-05T10:15:30"}"""
+        )
+
+        val release = sentCommands.filterIsInstance<ReleaseReservationCommand>().single()
+        assertEquals("stock-$productId", release.stockItemId.value)
     }
 
     /**
@@ -137,13 +133,15 @@ class OrderLifecycleSagaTest {
     /** Orders may add fields to its events at any time without inventory having to be redeployed. */
     @Test
     fun `unknown fields on an incoming message are ignored`() {
-        consumer.onOrderApproved(
+        reservation = ReservationView(orderRef = orderRef, lines = mutableListOf(heldLine(productId, 1)))
+
+        consumer.onOrderNullified(
             """
-            {"orderId":"$orderRef","customerTier":"GOLD",
+            {"orderId":"$orderRef","reason":"CANCELLED","customerTier":"GOLD",
              "lines":[{"productId":"$productId","quantity":1,"price":19.99}]}
             """.trimIndent()
         )
 
-        assertEquals(1, sentCommands.filterIsInstance<ReserveStockCommand>().size)
+        assertEquals(1, sentCommands.filterIsInstance<ReleaseReservationCommand>().size)
     }
 }

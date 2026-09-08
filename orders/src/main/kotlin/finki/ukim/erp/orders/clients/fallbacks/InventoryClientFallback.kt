@@ -1,8 +1,10 @@
 package finki.ukim.erp.orders.clients.fallbacks
 
 import feign.FeignException
+import finki.ukim.erp.orders.clients.CreateReservationRequest
 import finki.ukim.erp.orders.clients.InventoryClient
 import finki.ukim.erp.orders.clients.InventoryProductResponse
+import finki.ukim.erp.orders.clients.InventoryReservationResponse
 import finki.ukim.erp.orders.clients.InventoryStockResponse
 import finki.ukim.erp.orders.exceptions.InventoryUnavailableException
 import org.slf4j.LoggerFactory
@@ -41,10 +43,19 @@ class InventoryClientFallback(private val cause: Throwable) : InventoryClient {
 
     override fun getStock(productId: String): InventoryStockResponse = throw translated()
 
+    override fun createReservation(request: CreateReservationRequest): InventoryReservationResponse = throw translated()
+
+    override fun releaseReservation(orderRef: String) = throw translated()
+
+    override fun getReservation(orderRef: String): InventoryReservationResponse = throw translated()
+
     private fun translated(): RuntimeException = when (cause) {
         // Inventory answered, and its answer was "no such product". Let it through untouched so
         // FeignInventoryCatalog can turn it into a 404 rather than a 503.
         is FeignException.NotFound -> cause
+        // Likewise a refusal: inventory considered the request and would not do it. That is an
+        // answer, not an outage, and the reason it gave has to survive to reach the customer.
+        is FeignException.BadRequest -> cause
         else -> {
             log.warn("Inventory call fell back: {}", cause.toString())
             InventoryUnavailableException(cause)
