@@ -6,8 +6,10 @@ import finki.ukim.erp.inventory.domain.product.ProductReactivatedExternalEvent
 import finki.ukim.erp.inventory.domain.product.ProductUpdatedExternalEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockAdjustedExternalEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockConfirmedExternalEvent
+import finki.ukim.erp.inventory.domain.stockitem.StockReservationAmendedExternalEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockReservationReleasedExternalEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockReservedExternalEvent
+import finki.ukim.erp.inventory.domain.stockitem.StockReturnedExternalEvent
 import io.github.springwolf.bindings.kafka.annotations.KafkaAsyncOperationBinding
 import io.github.springwolf.core.asyncapi.annotations.AsyncOperation
 import io.github.springwolf.core.asyncapi.annotations.AsyncPublisher
@@ -98,7 +100,31 @@ class SpringwolfConfig {
     @Bean
     @AsyncPublisher(
         operation = AsyncOperation(
-            channelName = "stock.released",
+            channelName = "stock.reservation.amended",
+            description = "Published when an order's existing hold on a stock item is resized",
+            payloadType = StockReservationAmendedExternalEvent::class,
+        ),
+    )
+    @KafkaAsyncOperationBinding
+    fun stockReservationAmendedPublisher(): CompletableFuture<Void> = CompletableFuture.completedFuture(null)
+
+    @Bean
+    @AsyncPublisher(
+        operation = AsyncOperation(
+            channelName = "stock.returned",
+            description = "Published when goods that had been confirmed out are put back on the shelf",
+            payloadType = StockReturnedExternalEvent::class,
+        ),
+    )
+    @KafkaAsyncOperationBinding
+    fun stockReturnedPublisher(): CompletableFuture<Void> = CompletableFuture.completedFuture(null)
+
+    @Bean
+    @AsyncPublisher(
+        operation = AsyncOperation(
+            // `StockReservationReleasedEvent` derives `stock.reservation.released`, which is what
+            // is actually published and what orders subscribes to. This said `stock.released`.
+            channelName = "stock.reservation.released",
             description = "Published when a stock reservation is released",
             payloadType = StockReservationReleasedExternalEvent::class,
         ),

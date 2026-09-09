@@ -2,6 +2,7 @@ package finki.ukim.erp.orders.clients
 
 import finki.ukim.erp.orders.ProductId
 import finki.ukim.erp.orders.Quantity
+import finki.ukim.erp.orders.exceptions.StockNotReservedException
 import org.springframework.context.annotation.Primary
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
@@ -47,8 +48,25 @@ class MockInventoryCatalog : InventoryCatalog {
         reservations[orderRef] = lines
     }
 
+    /**
+     * Resizes what is remembered, and refuses what the real service would refuse: an order that is
+     * holding nothing cannot amend. Availability is judged against what is free *plus* what this
+     * order already holds, the same arithmetic inventory does on the delta, so a rehearsal here
+     * behaves like the real thing when a line goes up on stock the order itself is sitting on.
+     */
+    override fun amend(orderRef: String, lines: Map<ProductId, Quantity>) {
+        val held = reservations[orderRef]
+            ?: throw StockNotReservedException("Inventory holds no reservation for order $orderRef to amend")
+        val products = findProducts(lines.keys)
+        lines.forEach { (productId, quantity) ->
+            checkAvailable(productId, quantity, products, alreadyHeld = held[productId]?.value ?: 0)
+        }
+        reservations[orderRef] = lines
+    }
+
     override fun release(orderRef: String) {
         reservations.remove(orderRef)
+            ?: throw StockNotReservedException("Inventory holds no reservation for order $orderRef to release")
     }
 
     override fun findReservation(orderRef: String): InventoryReservation? =

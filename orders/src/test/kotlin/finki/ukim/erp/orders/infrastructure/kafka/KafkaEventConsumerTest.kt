@@ -2,6 +2,7 @@ package finki.ukim.erp.orders.infrastructure.kafka
 
 import finki.ukim.erp.orders.ProductId
 import finki.ukim.erp.orders.handlers.ProductDeactivatedEventHandler
+import finki.ukim.erp.orders.handlers.StockLifecycleEventHandler
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -20,7 +21,12 @@ import org.mockito.Mockito.verify
 class KafkaEventConsumerTest {
 
     private val reaction: ProductDeactivatedEventHandler = mock(ProductDeactivatedEventHandler::class.java)
-    private val consumer = KafkaEventConsumer(ProductDeactivatedTranslator(), reaction)
+    private val consumer = KafkaEventConsumer(
+        ProductDeactivatedTranslator(),
+        reaction,
+        StockEventTranslator(),
+        mock(StockLifecycleEventHandler::class.java)
+    )
 
     private fun record(json: String) =
         ConsumerRecord(KafkaEventConsumer.PRODUCT_DEACTIVATED_TOPIC, 0, 0L, "key", json)

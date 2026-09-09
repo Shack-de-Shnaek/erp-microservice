@@ -10,6 +10,7 @@ import finki.ukim.erp.orders.dto.OrderItemRequest
 import finki.ukim.erp.orders.exceptions.InsufficientStockException
 import finki.ukim.erp.orders.exceptions.ProductNotAvailableException
 import finki.ukim.erp.orders.exceptions.ProductNotFoundException
+import finki.ukim.erp.orders.exceptions.StockNotReservedException
 import finki.ukim.erp.orders.exceptions.StockReservationRejectedException
 import finki.ukim.erp.orders.views.OrderView
 import org.axonframework.commandhandling.gateway.CommandGateway
@@ -197,44 +198,76 @@ class OrderReservationTest {
         assertThrows<IllegalStateException> { place(productId to 1) }
 
         assertTrue(inventory.reservations.isEmpty(), "left a hold behind for an order that does not exist")
-        assertTrue(inventory.calls.any { it.startsWith("release(") }, "never tried to release: ${inventory.calls}")
+        assertTrue(
+            inventory.calls.any { it.startsWith("releaseQuietly(") },
+            "never tried to release: ${inventory.calls}"
+        )
     }
 
     // ------------------------------------------------------------------------------ amending
 
     @Test
-    fun `amending an order gives back the old hold before taking the new one`() {
+    fun `amending an order moves the hold in one call, never letting go of it`() {
         place(productId to 2)
         val orderId = createdOrderId()
         inventory.calls.clear()
 
         service.updateOrderItems(orderId, listOf(OrderItemRequest(otherProductId, 4)))
 
-        // Released first, deliberately: inventory refuses a second reservation for an order that
-        // already holds stock, and the order's own goods have to be back on the shelf to be
-        // counted as available for its new lines.
-        assertEquals(listOf("release(${orderId.value})", "reserve(${orderId.value})"), inventory.calls)
+        // One call, not a release followed by a reservation. There is no moment in between for
+        // another order to take the stock this one is keeping, because there is no in between.
+        assertEquals(listOf("amend(${orderId.value})"), inventory.calls)
         assertEquals(mapOf(ProductId(otherProductId) to Quantity(4)), heldFor(orderId.value))
         assertNotNull(dispatched.filterIsInstance<UpdateOrderItemsCommand>().singleOrNull())
     }
 
+    /**
+     * The reason the amendment is priced against the order's own hold. Availability counts what is
+     * *free*, and an order holding the last of something has made it unfree - so judging its new
+     * lines on availability alone would refuse an order raising a line it is already sitting on.
+     */
     @Test
-    fun `an amendment inventory will not hold puts the previous hold back`() {
+    fun `an order holding the last of a product can still raise that line`() {
+        inventory.available[productId] = 5
+        place(productId to 5)
+        val orderId = createdOrderId()
+        // Nothing free at all now, as far as availability is concerned.
+        inventory.available[productId] = 0
+
+        service.updateOrderItems(orderId, listOf(OrderItemRequest(productId, 5)))
+
+        assertEquals(mapOf(ProductId(productId) to Quantity(5)), heldFor(orderId.value))
+    }
+
+    @Test
+    fun `an amendment inventory will not hold leaves the order exactly as it was`() {
         place(productId to 2)
         val orderId = createdOrderId()
-        inventory.failNextReservation = StockReservationRejectedException(orderId.value, "not enough left")
+        inventory.failNextAmendment = StockReservationRejectedException(orderId.value, "not enough left")
 
         assertThrows<StockReservationRejectedException> {
             service.updateOrderItems(orderId, listOf(OrderItemRequest(otherProductId, 4)))
         }
 
-        // The amendment is what was lost, not the order: it stands exactly as it was placed.
+        // Nothing to put back, because nothing was given up: inventory unwinds its own work and
+        // answers, and the hold this order was placed on never moved.
         assertEquals(mapOf(ProductId(productId) to Quantity(2)), heldFor(orderId.value))
         assertTrue(dispatched.filterIsInstance<UpdateOrderItemsCommand>().isEmpty())
     }
 
+    /**
+     * The amendment reaches inventory before the command, so an aggregate that then refuses leaves
+     * the hold on the new lines while the order still reads the old ones.
+     *
+     * That is a real gap and it is recorded here rather than asserted away. It is much narrower
+     * than what it replaces - the aggregate's refusals are decided from state the caller has
+     * already read, so this needs the order to be invoiced or closed in the moment between the two
+     * calls - and unlike the old release-then-reserve it can never leave the order backed by
+     * *nothing*, only by the wrong lines. Closing it entirely needs the amendment to be part of
+     * the same decision as the command, which is a two-phase conversation neither service has.
+     */
     @Test
-    fun `an amendment the aggregate refuses puts the previous hold back`() {
+    fun `an amendment the aggregate refuses leaves the hold on the new lines`() {
         place(productId to 2)
         val orderId = createdOrderId()
         commandFailure = IllegalStateException("an invoiced order can no longer be edited")
@@ -243,21 +276,24 @@ class OrderReservationTest {
             service.updateOrderItems(orderId, listOf(OrderItemRequest(otherProductId, 4)))
         }
 
-        assertEquals(mapOf(ProductId(productId) to Quantity(2)), heldFor(orderId.value))
+        assertEquals(mapOf(ProductId(otherProductId) to Quantity(4)), heldFor(orderId.value))
     }
 
-    /** Nothing to put back: an order that was holding nothing is not given a hold by a failure. */
+    /**
+     * An order inventory holds nothing for cannot be amended into holding something. The caller is
+     * told, because that order is backed by nothing and somebody needs to know.
+     */
     @Test
-    fun `a failed amendment on an order that held nothing leaves it holding nothing`() {
+    fun `amending an order that holds nothing is refused rather than reserved`() {
         place(productId to 2)
         val orderId = createdOrderId()
         inventory.reservations.remove(orderId.value)
-        inventory.failNextReservation = StockReservationRejectedException(orderId.value, "not enough left")
 
-        assertThrows<StockReservationRejectedException> {
+        assertThrows<StockNotReservedException> {
             service.updateOrderItems(orderId, listOf(OrderItemRequest(otherProductId, 4)))
         }
 
         assertNull(heldFor(orderId.value))
+        assertTrue(dispatched.filterIsInstance<UpdateOrderItemsCommand>().isEmpty())
     }
 }

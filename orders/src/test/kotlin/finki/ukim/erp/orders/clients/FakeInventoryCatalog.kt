@@ -2,6 +2,7 @@ package finki.ukim.erp.orders.clients
 
 import finki.ukim.erp.orders.ProductId
 import finki.ukim.erp.orders.Quantity
+import finki.ukim.erp.orders.exceptions.StockNotReservedException
 import java.math.BigDecimal
 
 /**
@@ -65,8 +66,34 @@ class FakeInventoryCatalog(
         reservations[orderRef] = lines
     }
 
+    /** When set, the next [amend] fails with this. Cleared once it has been thrown. */
+    var failNextAmendment: RuntimeException? = null
+
+    override fun amend(orderRef: String, lines: Map<ProductId, Quantity>) {
+        calls += "amend($orderRef)"
+        failNextAmendment?.let {
+            failNextAmendment = null
+            throw it
+        }
+        // Refusing an unheld order is the behaviour the real service has, and the one the caller
+        // has to cope with; a fake that amended into existence would hide it.
+        val held = reservations[orderRef]
+            ?: throw StockNotReservedException("Inventory holds no reservation for order $orderRef to amend")
+        val products = findProducts(lines.keys)
+        lines.forEach { (productId, quantity) ->
+            checkAvailable(productId, quantity, products, alreadyHeld = held[productId]?.value ?: 0)
+        }
+        reservations[orderRef] = lines
+    }
+
     override fun release(orderRef: String) {
         calls += "release($orderRef)"
+        reservations.remove(orderRef)
+            ?: throw StockNotReservedException("Inventory holds no reservation for order $orderRef to release")
+    }
+
+    override fun releaseQuietly(orderRef: String) {
+        calls += "releaseQuietly($orderRef)"
         reservations.remove(orderRef)
     }
 

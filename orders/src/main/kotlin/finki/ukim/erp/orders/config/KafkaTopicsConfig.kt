@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.kafka.config.TopicBuilder
 
 /**
- * Declares the topic this service consumes.
+ * Declares the topics this service consumes.
  *
  * The producing service owns the contract; this is only about the topic existing. A consumer that
  * subscribes to a topic no broker has heard of yet is not told when it appears - it finds out on
@@ -24,9 +24,17 @@ import org.springframework.kafka.config.TopicBuilder
 class KafkaTopicsConfig {
 
     @Bean
-    fun productDeactivatedTopic(): NewTopic =
-        TopicBuilder.name(KafkaEventConsumer.PRODUCT_DEACTIVATED_TOPIC)
-            .partitions(1)
-            .replicas(1)
-            .build()
+    fun productDeactivatedTopic(): NewTopic = consumed(KafkaEventConsumer.PRODUCT_DEACTIVATED_TOPIC)
+
+    @Bean
+    fun stockConfirmedTopic(): NewTopic = consumed(KafkaEventConsumer.STOCK_CONFIRMED_TOPIC)
+
+    @Bean
+    fun stockReleasedTopic(): NewTopic = consumed(KafkaEventConsumer.STOCK_RELEASED_TOPIC)
+
+    @Bean
+    fun stockReturnedTopic(): NewTopic = consumed(KafkaEventConsumer.STOCK_RETURNED_TOPIC)
+
+    private fun consumed(name: String): NewTopic =
+        TopicBuilder.name(name).partitions(1).replicas(1).build()
 }

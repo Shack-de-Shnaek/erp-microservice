@@ -44,6 +44,26 @@ class StockItem {
     @MapKeyColumn(name = "order_ref")
     var reservationLedger: MutableMap<String, Quantity> = mutableMapOf()
 
+    /**
+     * What each order has already taken off the shelf.
+     *
+     * Confirmation used to be the end of an order as far as this item was concerned: the ledger
+     * entry was dropped and the quantity forgotten. It cannot be, because an order is not finished
+     * when its goods go out - an invoice can be reversed and the customer refunded afterwards, and
+     * the goods then have to come back. Something has to remember how many, and only this does.
+     *
+     * So a hold moves between the two ledgers rather than disappearing: reserved while it is a
+     * claim on stock that has not moved, confirmed once the goods have gone. An order appears in
+     * at most one of them.
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+        name = "stock_item_confirmations",
+        joinColumns = [JoinColumn(name = "stock_item_id")],
+    )
+    @MapKeyColumn(name = "order_ref")
+    var confirmedLedger: MutableMap<String, Quantity> = mutableMapOf()
+
     constructor()
 
     @CommandHandler
@@ -73,10 +93,88 @@ class StockItem {
         apply(StockReservedEvent(command))
     }
 
+    /**
+     * Resizes a hold this order already has, contesting only the difference.
+     *
+     * The delta is the point. Raising a hold from 2 to 5 asks the shelf for 3 more units and is
+     * checked against 3; lowering it hands units back and cannot fail at all. Contrast the release
+     * -then-reserve this replaces, where the order dropped all 2 units and then had to win all 5
+     * back against every other order in flight - so amending an order for the last of something
+     * could lose stock the order already had.
+     *
+     * Refusing an unknown `orderRef` rather than reserving one is deliberate, and it is the one
+     * place this command is stricter than its neighbours: [ReserveStockCommand] ignores a repeat
+     * and [ReleaseReservationCommand] ignores a hold that is not there, because both are driven by
+     * messages that may be redelivered and doing nothing twice is harmless. An amend is not
+     * redelivered - it comes from a caller holding a reservation it just read - so "you are not
+     * holding any of this" means the caller is working from a picture that has already changed,
+     * and silently creating the hold would turn that into stock taken for a line nobody checked.
+     *
+     * Amending to the quantity already held is a no-op: nothing moved, so there is nothing to
+     * announce, and a caller replaying the same amendment gets the same state rather than a second
+     * event saying zero changed.
+     */
+    @CommandHandler
+    fun on(command: AmendReservationCommand) {
+        val held = reservationLedger[command.orderRef]
+            // Which of the two it is, decided here rather than in the controller, because only the
+            // aggregate knows without lag. The controller's equivalent check reads the reservation
+            // projection, which can still say ACTIVE moments after the goods have gone out.
+            ?: throw IllegalStateException(
+                if (confirmedLedger.containsKey(command.orderRef)) {
+                    "Order ${command.orderRef} has already been confirmed for item " +
+                        "${command.stockItemId.value} and its reservation can no longer be amended"
+                } else {
+                    "Order ${command.orderRef} holds no stock of item ${command.stockItemId.value}: " +
+                        "an amendment can resize a hold but not create one"
+                },
+            )
+        check(command.quantity.amount > 0) {
+            "Amending order ${command.orderRef} to zero would end the hold; release it instead"
+        }
+        if (held == command.quantity) {
+            return
+        }
+
+        val delta = command.quantity.amount - held.amount
+        if (delta > 0) {
+            val currentOnHand = onHand?.amount ?: 0
+            val currentReserved = reserved?.amount ?: 0
+            // Only the increase is judged. What this order is already holding stays its own and is
+            // never put back on the shelf to be won again.
+            check(currentOnHand - currentReserved >= delta) {
+                "Insufficient stock to raise order ${command.orderRef} from ${held.amount} to " +
+                    "${command.quantity.amount}: $currentOnHand on hand, $currentReserved reserved, " +
+                    "$delta more requested"
+            }
+        }
+        apply(StockReservationAmendedEvent(command.stockItemId, command.orderRef, held, command.quantity))
+    }
+
+    /**
+     * Gives back whatever this order has, in whichever of the two forms it has it.
+     *
+     * A hold that is still reserved is released and the goods were never touched. Goods that were
+     * confirmed have physically left, so giving them back means putting them on the shelf again -
+     * a different event, because it is a different fact, and a consumer counting stock movements
+     * must not read the two as the same thing.
+     *
+     * Being able to do the second at all is what lets a paid order be reversed. Confirmation used
+     * to be terminal here, so a refunded invoice returned the customer's money and quietly lost the
+     * goods.
+     *
+     * Holding neither is still a silent no-op: a nullification that arrives twice finds nothing to
+     * do the second time, which is what makes redelivery harmless.
+     */
     @CommandHandler
     fun on(command: ReleaseReservationCommand) {
-        val quantity = reservationLedger[command.orderRef] ?: return
-        apply(StockReservationReleasedEvent(command.stockItemId, command.orderRef, quantity))
+        reservationLedger[command.orderRef]?.let { reserved ->
+            apply(StockReservationReleasedEvent(command.stockItemId, command.orderRef, reserved, command.reason))
+            return
+        }
+        confirmedLedger[command.orderRef]?.let { confirmed ->
+            apply(StockReturnedEvent(command.stockItemId, command.orderRef, confirmed, command.reason))
+        }
     }
 
     @CommandHandler
@@ -106,6 +204,7 @@ class StockItem {
         reserved = Quantity(0)
         reorderThreshold = event.reorderThreshold
         reservationLedger = mutableMapOf()
+        confirmedLedger = mutableMapOf()
     }
 
     @EventSourcingHandler
@@ -120,6 +219,12 @@ class StockItem {
     }
 
     @EventSourcingHandler
+    fun on(event: StockReservationAmendedEvent) {
+        reserved = Quantity((reserved?.amount ?: 0) + event.delta)
+        reservationLedger[event.orderRef] = event.quantity
+    }
+
+    @EventSourcingHandler
     fun on(event: StockReservationReleasedEvent) {
         reserved = Quantity((reserved?.amount ?: 0) - event.quantity.amount)
         reservationLedger.remove(event.orderRef)
@@ -129,7 +234,16 @@ class StockItem {
     fun on(event: StockConfirmedEvent) {
         onHand = Quantity((onHand?.amount ?: 0) - event.quantity.amount)
         reserved = Quantity((reserved?.amount ?: 0) - event.quantity.amount)
+        // Moved rather than forgotten: the goods have gone out, but the order can still be reversed
+        // and they have to be findable when it is.
         reservationLedger.remove(event.orderRef)
+        confirmedLedger[event.orderRef] = event.quantity
+    }
+
+    @EventSourcingHandler
+    fun on(event: StockReturnedEvent) {
+        onHand = Quantity((onHand?.amount ?: 0) + event.quantity.amount)
+        confirmedLedger.remove(event.orderRef)
     }
 
     @EventSourcingHandler
@@ -144,5 +258,6 @@ class StockItem {
         reserved = null
         reorderThreshold = null
         reservationLedger = mutableMapOf()
+        confirmedLedger = mutableMapOf()
     }
 }

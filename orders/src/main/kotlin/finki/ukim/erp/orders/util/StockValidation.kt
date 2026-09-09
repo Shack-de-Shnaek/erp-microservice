@@ -4,6 +4,7 @@ import finki.ukim.erp.orders.Money
 import finki.ukim.erp.orders.ProductId
 import finki.ukim.erp.orders.Quantity
 import finki.ukim.erp.orders.clients.InventoryCatalog
+import finki.ukim.erp.orders.clients.InventoryReservation
 import finki.ukim.erp.orders.commands.PricedItem
 import finki.ukim.erp.orders.dto.OrderItemRequest
 import finki.ukim.erp.orders.exceptions.StockNotReservedException
@@ -23,6 +24,33 @@ fun InventoryCatalog.priceItems(items: List<OrderItemRequest>): List<PricedItem>
         val productId = ProductId(request.productId)
         val quantity = Quantity(request.quantity)
         val product = checkAvailable(productId, quantity, products)
+        PricedItem(productId = productId, quantity = quantity, price = Money.fromExternal(product.price))
+    }
+}
+
+/**
+ * The same, for an amendment, judged against what the order is already holding.
+ *
+ * [priceItems] asks whether there is enough *free* stock for each line, and on an amendment that
+ * is the wrong question: the order's own goods were put aside when it was placed, so they no
+ * longer count as free. Asking it anyway would judge a line going from 2 to 5 as though the order
+ * held none of it and needed all 5 off the shelf - so an order for the last of something could not
+ * be amended even to *fewer* of it.
+ *
+ * What is asked instead is whether the shelf can cover the increase, which is exactly what
+ * inventory itself will decide a moment later. This check is still not the decision - inventory is
+ * the only thing that decides atomically - it is what turns the common refusal into a message
+ * naming the product before a command goes anywhere.
+ */
+fun InventoryCatalog.priceItemsForAmendment(
+    items: List<OrderItemRequest>,
+    held: InventoryReservation?
+): List<PricedItem> {
+    val products = findProducts(items.map { ProductId(it.productId) })
+    return items.map { request ->
+        val productId = ProductId(request.productId)
+        val quantity = Quantity(request.quantity)
+        val product = checkAvailable(productId, quantity, products, alreadyHeld = held?.heldFor(productId) ?: 0)
         PricedItem(productId = productId, quantity = quantity, price = Money.fromExternal(product.price))
     }
 }

@@ -9,6 +9,7 @@ import finki.ukim.erp.orders.commands.GenerateInvoiceCommand
 import finki.ukim.erp.orders.commands.PricedItem
 import finki.ukim.erp.orders.commands.RegisterPaymentCommand
 import finki.ukim.erp.orders.commands.RejectOrderCommand
+import finki.ukim.erp.orders.commands.RejectOrderForWithdrawnStockCommand
 import finki.ukim.erp.orders.commands.ReverseInvoiceCommand
 import finki.ukim.erp.orders.commands.UpdateInvoiceLineItemsCommand
 import finki.ukim.erp.orders.commands.UpdateOrderItemsCommand
@@ -143,6 +144,61 @@ class OrderAggregateTest {
     private fun approved() = OrderApprovedEvent(orderId, defaultLines())
 
     private fun cancelled(refunded: Money) = OrderCancelledEvent(orderId, refunded, defaultLines())
+
+    // ------------------------------------------------- stock withdrawn by inventory
+
+    /**
+     * The rule that lets "any product's stock being withdrawn rejects the whole order" work without
+     * anything counting lines: the first withdrawal closes the order, and the rest find it closed.
+     */
+    @Test
+    fun `stock withdrawn from a pending order rejects it`() {
+        fixture.givenState { orderWith(defaultOrderCreated()) }
+            .`when`(RejectOrderForWithdrawnStockCommand(orderId, "inventory released 2 of stock item si-1"))
+            .expectEvents(OrderRejectedEvent(orderId))
+    }
+
+    /**
+     * Approval now comes from stock confirmation, so an approved order is exactly the kind whose
+     * stock can go missing. The pending-only rule on ordinary rejection would have left it standing.
+     */
+    @Test
+    fun `stock withdrawn from an approved order rejects it too`() {
+        fixture.givenState { orderWith(defaultOrderCreated(), approved()) }
+            .`when`(RejectOrderForWithdrawnStockCommand(orderId, "withdrawn"))
+            .expectEvents(OrderRejectedEvent(orderId))
+    }
+
+    /**
+     * The guard that keeps a customer's money from being stranded. Rejection moves no money, so
+     * closing a paid order this way would leave the payment with nothing recording that it is owed.
+     */
+    @Test
+    fun `stock withdrawn from a paid order is refused rather than rejecting it`() {
+        fixture.givenState { orderWith(defaultOrderCreated(), approved(), fullPayment()) }
+            .`when`(RejectOrderForWithdrawnStockCommand(orderId, "withdrawn"))
+            .expectException(InvalidOrderStateException::class.java)
+    }
+
+    /** Kafka redelivers; rejecting an already-rejected order has to be as harmless as the first time. */
+    @Test
+    fun `stock withdrawn from an already rejected order does nothing`() {
+        fixture.givenState { orderWith(defaultOrderCreated(), OrderRejectedEvent(orderId)) }
+            .`when`(RejectOrderForWithdrawnStockCommand(orderId, "withdrawn"))
+            .expectNoEvents()
+    }
+
+    /**
+     * The loop guard, at the aggregate end. Cancelling publishes `order.nullified`, inventory
+     * releases, and that release comes back - so a cancelled order must absorb it silently rather
+     * than rejecting itself and nullifying again.
+     */
+    @Test
+    fun `stock withdrawn from a cancelled order does nothing`() {
+        fixture.givenState { orderWith(defaultOrderCreated(), approved(), cancelled(Money.ZERO)) }
+            .`when`(RejectOrderForWithdrawnStockCommand(orderId, "withdrawn"))
+            .expectNoEvents()
+    }
 
     // ------------------------------------------------------------------ creation
 

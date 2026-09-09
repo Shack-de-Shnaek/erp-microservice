@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import java.math.BigDecimal
 
@@ -60,6 +61,19 @@ data class ReservationLineRequest(
 /** The body of `POST /api/reservations`: an order's whole hold, taken in one call. */
 data class CreateReservationRequest(
     val orderRef: String,
+    val lines: List<ReservationLineRequest>
+)
+
+/**
+ * The body of `PUT /api/reservations/{orderRef}`: every line the order should hold after the
+ * amendment, not the ones that changed.
+ *
+ * Stating the whole set is what makes the operation one decision. Inventory works out for itself
+ * which lines went up, which came down, which are new and which are gone, and moves all of them
+ * together - so the order never stands empty-handed between giving its stock back and asking for
+ * it again, which is the race a release followed by a fresh reservation could not avoid.
+ */
+data class AmendReservationRequest(
     val lines: List<ReservationLineRequest>
 )
 
@@ -151,6 +165,25 @@ interface InventoryClient {
     // service's code runs. The GETs above need no such thing - they have no body to label.
     @PostMapping("/api/reservations", consumes = ["application/json"])
     fun createReservation(@RequestBody request: CreateReservationRequest): InventoryReservationResponse
+
+    /**
+     * Moves an order's existing hold to a new set of lines, all of it or none.
+     *
+     * A command like [createReservation], and refused the same way - 400 with the reason in the
+     * body when inventory will not do it. The difference is that it never lets go of what the
+     * order is keeping: only the part of a line that is going *up* is contested, so an amendment
+     * that lowers a quantity, drops a product or leaves a line alone cannot lose that stock to
+     * another order.
+     *
+     * 404 means inventory holds no reservation for this order, which is a real answer and not a
+     * success - there was nothing to amend, and the order is not backed by the goods the caller
+     * believed it was.
+     */
+    @PutMapping("/api/reservations/{orderRef}", consumes = ["application/json"])
+    fun amendReservation(
+        @PathVariable("orderRef") orderRef: String,
+        @RequestBody request: AmendReservationRequest
+    ): InventoryReservationResponse
 
     /** Gives back everything held for the order. 404 when there is nothing held. */
     @DeleteMapping("/api/reservations/{orderRef}")

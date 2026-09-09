@@ -1,5 +1,6 @@
 package finki.ukim.erp.inventory.integration
 
+import finki.ukim.erp.inventory.domain.stockitem.ReleaseReason
 import finki.ukim.erp.inventory.domain.stockitem.ReleaseReservationCommand
 import finki.ukim.erp.inventory.domain.stockitem.StockItemId
 import finki.ukim.erp.inventory.query.reservation.FindReservationByOrderRefQuery
@@ -74,9 +75,16 @@ class OrderLifecycleSaga(
 
         // Straight off the reservation, with no lookup in between: the line already names the stock
         // item that is holding the goods, which is the thing the command has to address.
+        // ORDER_NULLIFIED: the order ended and said so, so this is the consequence of something it
+        // already decided. The reason keeps that distinct from stock this service takes back on its
+        // own, which is news the order has to act on rather than an echo of its own decision.
         reservation.lines.forEach { line ->
             commandGateway.sendAndWait<Any>(
-                ReleaseReservationCommand(StockItemId.fromString(line.stockItemId), order.orderRef),
+                ReleaseReservationCommand(
+                    StockItemId.fromString(line.stockItemId),
+                    order.orderRef,
+                    ReleaseReason.ORDER_NULLIFIED,
+                ),
             )
         }
     }

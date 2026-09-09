@@ -11,8 +11,10 @@ import au.com.dius.pact.core.model.V4Pact
 import au.com.dius.pact.core.model.annotations.Pact
 import finki.ukim.erp.orders.ProductId
 import finki.ukim.erp.orders.handlers.ProductDeactivatedEventHandler
+import finki.ukim.erp.orders.handlers.StockLifecycleEventHandler
 import finki.ukim.erp.orders.infrastructure.kafka.KafkaEventConsumer
 import finki.ukim.erp.orders.infrastructure.kafka.ProductDeactivatedTranslator
+import finki.ukim.erp.orders.infrastructure.kafka.StockEventTranslator
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
@@ -50,7 +52,12 @@ import org.mockito.Mockito.verify
 class ProductDeactivatedListenerTest {
 
     private val reaction: ProductDeactivatedEventHandler = mock(ProductDeactivatedEventHandler::class.java)
-    private val consumer = KafkaEventConsumer(ProductDeactivatedTranslator(), reaction)
+    private val consumer = KafkaEventConsumer(
+        ProductDeactivatedTranslator(),
+        reaction,
+        StockEventTranslator(),
+        mock(StockLifecycleEventHandler::class.java)
+    )
 
     /**
      * V4, matching the HTTP consumer test against the same provider. Both write to

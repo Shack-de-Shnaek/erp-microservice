@@ -58,16 +58,68 @@ data class StockReservedEvent(
         )
 }
 
+/**
+ * An order's hold on this item changed size.
+ *
+ * Both quantities are carried. [previousQuantity] is what makes the event replayable into a
+ * running total - a projection tracking `reserved` needs the delta, and deriving it from the
+ * event alone is what stops it from having to read the state it is building. [quantity] is the
+ * new truth, which is what a reader that only wants to know the current hold is after.
+ */
+data class StockReservationAmendedEvent(
+    val stockItemId: StockItemId,
+    val orderRef: String,
+    val previousQuantity: Quantity,
+    val quantity: Quantity,
+) : StockItemEvent(stockItemId) {
+
+    /** Positive when the order took more, negative when it gave some back. Never zero. */
+    val delta: Int get() = quantity.amount - previousQuantity.amount
+
+    override fun toExternalEvent(): Any =
+        StockReservationAmendedExternalEvent(
+            stockItemId = stockItemId.value,
+            orderRef = orderRef,
+            previousQuantity = previousQuantity.amount,
+            quantity = quantity.amount,
+        )
+}
+
 data class StockReservationReleasedEvent(
     val stockItemId: StockItemId,
     val orderRef: String,
     val quantity: Quantity,
+    val reason: ReleaseReason = ReleaseReason.ORDER_NULLIFIED,
 ) : StockItemEvent(stockItemId) {
     override fun toExternalEvent(): Any =
         StockReservationReleasedExternalEvent(
             stockItemId = stockItemId.value,
             orderRef = orderRef,
             quantity = quantity.amount,
+            reason = reason.name,
+        )
+}
+
+/**
+ * Goods that had already left the shelf for an order came back to it.
+ *
+ * The counterpart to [StockConfirmedEvent], and a different thing from a release: a release lets go
+ * of a claim on stock that never moved, where this puts physical stock back. An order whose invoice
+ * is reversed after payment has to produce this one - the goods went out, and refunding the customer
+ * without restocking them would lose them from the ledger entirely.
+ */
+data class StockReturnedEvent(
+    val stockItemId: StockItemId,
+    val orderRef: String,
+    val quantity: Quantity,
+    val reason: ReleaseReason = ReleaseReason.ORDER_NULLIFIED,
+) : StockItemEvent(stockItemId) {
+    override fun toExternalEvent(): Any =
+        StockReturnedExternalEvent(
+            stockItemId = stockItemId.value,
+            orderRef = orderRef,
+            quantity = quantity.amount,
+            reason = reason.name,
         )
 }
 

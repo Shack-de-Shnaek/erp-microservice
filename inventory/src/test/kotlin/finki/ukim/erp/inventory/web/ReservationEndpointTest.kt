@@ -27,6 +27,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import java.util.UUID
 
 /**
@@ -119,6 +120,153 @@ class ReservationEndpointTest {
         mockMvc.perform(
             post("/api/reservations").contentType(MediaType.APPLICATION_JSON).content(body(orderRef, *lines)),
         ).andReturn().response
+
+    private fun amendBody(vararg lines: Pair<ProductId, Int>): String =
+        objectMapper.writeValueAsString(
+            mapOf("lines" to lines.map { mapOf("productId" to it.first.value, "quantity" to it.second) }),
+        )
+
+    private fun amend(orderRef: String, vararg lines: Pair<ProductId, Int>) =
+        mockMvc.perform(
+            put("/api/reservations/$orderRef").contentType(MediaType.APPLICATION_JSON).content(amendBody(*lines)),
+        ).andReturn().response
+
+    @Test
+    fun `amending an order holding the last of the stock keeps it`() {
+        // The race the amend endpoint exists to close. Under release-then-reserve this order gave
+        // all 10 back before asking for 8, and anything else in flight could take them in between.
+        val productId = productWithStock(onHand = 10)
+        val orderRef = orderRef()
+
+        assertEquals(201, reserve(orderRef, productId to 10).status)
+        awaitReserved(productId, 10)
+
+        assertEquals(200, amend(orderRef, productId to 8).status)
+        awaitReserved(productId, 8)
+
+        // And back up again, into stock it never let go of.
+        assertEquals(200, amend(orderRef, productId to 10).status)
+        awaitReserved(productId, 10)
+    }
+
+    @Test
+    fun `amending refuses an increase the shelf cannot cover and changes nothing`() {
+        val productId = productWithStock(onHand = 10)
+        val orderRef = orderRef()
+
+        assertEquals(201, reserve(orderRef, productId to 6).status)
+        awaitReserved(productId, 6)
+
+        val refused = amend(orderRef, productId to 11)
+        assertEquals(400, refused.status)
+        assertTrue(
+            refused.contentAsString.contains("Insufficient stock"),
+            "the refusal should say what was wrong, was: ${refused.contentAsString}",
+        )
+        // The order still holds exactly what it held: a refused amendment moves nothing.
+        awaitReserved(productId, 6)
+    }
+
+    @Test
+    fun `amending adds, resizes and drops lines in one call`() {
+        val kept = productWithStock(onHand = 10)
+        val dropped = productWithStock(onHand = 10)
+        val added = productWithStock(onHand = 10)
+        val orderRef = orderRef()
+
+        assertEquals(201, reserve(orderRef, kept to 2, dropped to 3).status)
+        awaitReserved(kept, 2)
+        awaitReserved(dropped, 3)
+
+        assertEquals(200, amend(orderRef, kept to 5, added to 1).status)
+
+        awaitReserved(kept, 5)
+        awaitReserved(dropped, 0)
+        awaitReserved(added, 1)
+    }
+
+    @Test
+    fun `amending a confirmed reservation is refused with a reason`() {
+        val productId = productWithStock(onHand = 10)
+        val orderRef = orderRef()
+
+        assertEquals(201, reserve(orderRef, productId to 4).status)
+        awaitReserved(productId, 4)
+        assertEquals(
+            200,
+            mockMvc.perform(post("/api/reservations/$orderRef/confirm")).andReturn().response.status,
+        )
+
+        // The goods have gone out; there is no hold left to resize. A refusal, on the same status
+        // as every other refusal this controller makes - the request is one it will not carry out.
+        val refused = amend(orderRef, productId to 6)
+        assertEquals(400, refused.status)
+        assertTrue(
+            refused.contentAsString.contains("confirmed"),
+            "the refusal should say why, was: ${refused.contentAsString}",
+        )
+    }
+
+    /** Confirmed goods still come back: an invoice can be reversed after the customer has paid. */
+    @Test
+    fun `releasing a confirmed reservation puts the goods back on the shelf`() {
+        val productId = productWithStock(onHand = 10)
+        val orderRef = orderRef()
+
+        assertEquals(201, reserve(orderRef, productId to 4).status)
+        awaitReserved(productId, 4)
+        assertEquals(
+            200,
+            mockMvc.perform(post("/api/reservations/$orderRef/confirm")).andReturn().response.status,
+        )
+        awaitOnHand(productId, 6)
+
+        assertEquals(204, mockMvc.perform(delete("/api/reservations/$orderRef")).andReturn().response.status)
+
+        // Before the confirmed ledger existed this release found nothing, answered 204, and the
+        // goods were lost from the ledger entirely.
+        awaitOnHand(productId, 10)
+    }
+
+    private fun awaitOnHand(productId: ProductId, expected: Int) {
+        assertEquals(
+            expected,
+            fetchWithRetry {
+                stockItemViewRepository.findByProductId(productId.value)?.onHand?.takeIf { it == expected }
+            },
+            "stock_item_view never came to read $expected on hand for $productId",
+        )
+    }
+
+    @Test
+    fun `amending a reservation that does not exist is a 404, not a new reservation`() {
+        val productId = productWithStock(onHand = 10)
+
+        // The honest answer. Reserving instead would open a hold nobody asked for, and would hide
+        // exactly the state an order needs to hear about: that it is backed by nothing.
+        assertEquals(404, amend(orderRef(), productId to 1).status)
+        awaitReserved(productId, 0)
+    }
+
+    @Test
+    fun `amending an inactive product down is allowed, up is not`() {
+        val productId = productWithStock(onHand = 10)
+        val orderRef = orderRef()
+
+        assertEquals(201, reserve(orderRef, productId to 5).status)
+        awaitReserved(productId, 5)
+
+        commandGateway.sendAndWait<Any>(DeactivateProductCommand(productId))
+        awaitStatus(productId, ProductStatus.INACTIVE)
+
+        // Withdrawing a product must not trap an order that already holds some of it.
+        assertEquals(200, amend(orderRef, productId to 2).status)
+        awaitReserved(productId, 2)
+
+        // But it may not take any more off the shelf.
+        assertEquals(400, amend(orderRef, productId to 6).status)
+        awaitReserved(productId, 2)
+    }
 
     @Test
     fun `an order's stock is reserved and can be released again`() {

@@ -5,8 +5,10 @@ import finki.ukim.erp.inventory.domain.stockitem.StockConfirmedEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockItemCreatedEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockItemDeletedEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockReorderThresholdUpdatedEvent
+import finki.ukim.erp.inventory.domain.stockitem.StockReservationAmendedEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockReservationReleasedEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockReservedEvent
+import finki.ukim.erp.inventory.domain.stockitem.StockReturnedEvent
 import finki.ukim.erp.inventory.query.stockitem.FindAllStockItemsQuery
 import finki.ukim.erp.inventory.query.stockitem.FindLowStockItemsQuery
 import finki.ukim.erp.inventory.query.stockitem.FindStockItemByProductIdQuery
@@ -50,6 +52,12 @@ class StockItemProjection(
 
     @EventHandler
     @Transactional
+    fun on(event: StockReservationAmendedEvent) {
+        upsert(event.stockItemId.value) { it.copy(reserved = (it.reserved + event.delta).coerceAtLeast(0)) }
+    }
+
+    @EventHandler
+    @Transactional
     fun on(event: StockReservationReleasedEvent) {
         upsert(event.stockItemId.value) { it.copy(reserved = (it.reserved - event.quantity.amount).coerceAtLeast(0)) }
     }
@@ -63,6 +71,13 @@ class StockItemProjection(
                 reserved = (it.reserved - event.quantity.amount).coerceAtLeast(0),
             )
         }
+    }
+
+    @EventHandler
+    @Transactional
+    fun on(event: StockReturnedEvent) {
+        // Back on the shelf. Only onHand moves: the reservation was already given up at confirmation.
+        upsert(event.stockItemId.value) { it.copy(onHand = it.onHand + event.quantity.amount) }
     }
 
     @EventHandler

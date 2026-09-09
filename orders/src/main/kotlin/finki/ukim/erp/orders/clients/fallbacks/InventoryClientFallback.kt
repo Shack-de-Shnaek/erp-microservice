@@ -1,6 +1,7 @@
 package finki.ukim.erp.orders.clients.fallbacks
 
 import feign.FeignException
+import finki.ukim.erp.orders.clients.AmendReservationRequest
 import finki.ukim.erp.orders.clients.CreateReservationRequest
 import finki.ukim.erp.orders.clients.InventoryClient
 import finki.ukim.erp.orders.clients.InventoryProductResponse
@@ -44,6 +45,11 @@ class InventoryClientFallback(private val cause: Throwable) : InventoryClient {
     override fun getStock(productId: String): InventoryStockResponse = throw translated()
 
     override fun createReservation(request: CreateReservationRequest): InventoryReservationResponse = throw translated()
+
+    override fun amendReservation(
+        orderRef: String,
+        request: AmendReservationRequest
+    ): InventoryReservationResponse = throw translated()
 
     override fun releaseReservation(orderRef: String) = throw translated()
 

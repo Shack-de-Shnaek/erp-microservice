@@ -8,6 +8,7 @@ import finki.ukim.erp.orders.exceptions.InsufficientStockException
 import finki.ukim.erp.orders.exceptions.InventoryUnavailableException
 import finki.ukim.erp.orders.exceptions.ProductNotAvailableException
 import finki.ukim.erp.orders.exceptions.ProductNotFoundException
+import finki.ukim.erp.orders.exceptions.StockNotReservedException
 import finki.ukim.erp.orders.exceptions.StockReservationRejectedException
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
@@ -52,8 +53,44 @@ interface InventoryCatalog {
      */
     fun reserve(orderRef: String, lines: Map<ProductId, Quantity>)
 
-    /** Gives back whatever is held for [orderRef]. Holding nothing is not an error. */
+    /**
+     * Moves the hold for [orderRef] onto [lines], as one operation.
+     *
+     * The whole set, not a delta: inventory decides for itself what went up, what came down, what
+     * is new and what is gone. What matters to a caller is that the order keeps what it is
+     * keeping - only an increase is contested - so amending an order for the last of something no
+     * longer risks losing it to another order in the gap. There is no gap.
+     *
+     * Throws [StockNotReservedException] when inventory holds nothing for this order. That is a
+     * real answer rather than a reason to reserve instead: the order was accepted on goods that
+     * are no longer being held, and quietly opening a fresh hold would paper over exactly the
+     * state [finki.ukim.erp.orders.util.verifyStockReserved] exists to catch.
+     */
+    fun amend(orderRef: String, lines: Map<ProductId, Quantity>)
+
+    /**
+     * Gives back whatever is held for [orderRef].
+     *
+     * Throws [StockNotReservedException] if inventory holds nothing. Releasing what is not there
+     * is not success - it means the order was already unbacked, which somebody wants to know
+     * about - so the tolerance a compensating caller needs lives in [releaseQuietly] rather than
+     * being built into every release.
+     */
     fun release(orderRef: String)
+
+    /**
+     * [release], for the compensating callers, where failing while undoing helps nobody.
+     *
+     * Swallows everything and logs it, including the "nothing was held" that [release] treats as
+     * an error - during compensation that is often the truth, because the reservation being given
+     * back may never have been taken. The distinction is worth two methods: a caller undoing its
+     * own half-finished work has different needs from one being told the order is unbacked, and
+     * one method serving both meant the second caller silently got the first one's answer.
+     */
+    fun releaseQuietly(orderRef: String) {
+        runCatching { release(orderRef) }
+            .onFailure { catalogLogger.error("Could not release the stock held for order {}", orderRef, it) }
+    }
 
     /** What inventory is holding for [orderRef], or null if it holds nothing. */
     fun findReservation(orderRef: String): InventoryReservation?
@@ -66,20 +103,29 @@ interface InventoryCatalog {
     fun checkAvailable(
         productId: ProductId,
         quantity: Quantity,
-        products: Map<ProductId, InventoryProduct>
+        products: Map<ProductId, InventoryProduct>,
+        alreadyHeld: Int = 0
     ): InventoryProduct {
         val product = products[productId] ?: throw ProductNotFoundException(productId)
         // Before the numbers: a withdrawn product is not "some of it left", it is not for sale, and
         // saying so is more use than an arithmetic complaint about a shelf nobody may draw from.
-        if (!product.active) {
+        // Only asking for *more* of it counts, though: an order already holding a withdrawn product
+        // must still be able to lower that line or drop it, which is the one change it most
+        // obviously should be allowed to make.
+        if (!product.active && quantity.value > alreadyHeld) {
             throw ProductNotAvailableException(productId)
         }
-        if (product.availableQuantity < quantity.value) {
+        // What this order may take is what is free plus what it is already holding. Counting only
+        // what is free would judge an amendment as though the order had first given its own stock
+        // back - so raising a line on the last of something would fail against the order's own hold.
+        if (product.availableQuantity + alreadyHeld < quantity.value) {
             throw InsufficientStockException(productId, quantity)
         }
         return product
     }
 }
+
+private val catalogLogger = org.slf4j.LoggerFactory.getLogger(InventoryCatalog::class.java)
 
 /** What inventory is holding for one order, in the ids this service's own orders are written in. */
 data class InventoryReservation(
@@ -136,16 +182,34 @@ class FeignInventoryCatalog(
         }
     }
 
+    override fun amend(orderRef: String, lines: Map<ProductId, Quantity>) {
+        val request = AmendReservationRequest(
+            lines = lines.map { (productId, quantity) ->
+                ReservationLineRequest(productId = productId.value, quantity = quantity.value)
+            }
+        )
+        try {
+            inventoryClient.amendReservation(orderRef, request)
+        } catch (ex: FeignException.NotFound) {
+            throw StockNotReservedException("Inventory holds no reservation for order $orderRef to amend")
+        } catch (ex: FeignException.BadRequest) {
+            throw StockReservationRejectedException(orderRef, reasonFrom(ex))
+        } catch (ex: FeignException) {
+            throw InventoryUnavailableException(ex)
+        }
+    }
+
     /**
-     * A 404 is success here, not a failure: it says inventory holds nothing for this order, which
-     * is exactly the state the call is trying to reach. That matters because release runs as
-     * compensation, where the one thing worse than not releasing is failing while trying to.
+     * A 404 is reported, not swallowed: it says inventory holds nothing for this order, and an
+     * order that believed it was backed by goods needs that to surface rather than read as a
+     * successful release. Callers undoing their own work go through
+     * [InventoryCatalog.releaseQuietly], which is where the tolerance belongs.
      */
     override fun release(orderRef: String) {
         try {
             inventoryClient.releaseReservation(orderRef)
         } catch (ex: FeignException.NotFound) {
-            return
+            throw StockNotReservedException("Inventory holds no reservation for order $orderRef to release")
         } catch (ex: FeignException) {
             throw InventoryUnavailableException(ex)
         }

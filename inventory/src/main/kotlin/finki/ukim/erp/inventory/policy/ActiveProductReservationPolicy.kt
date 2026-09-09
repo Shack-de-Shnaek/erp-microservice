@@ -1,6 +1,7 @@
 package finki.ukim.erp.inventory.policy
 
 import finki.ukim.erp.inventory.domain.product.ProductStatus
+import finki.ukim.erp.inventory.domain.stockitem.AmendReservationCommand
 import finki.ukim.erp.inventory.domain.stockitem.ReserveStockCommand
 import finki.ukim.erp.inventory.readmodel.ProductViewRepository
 import finki.ukim.erp.inventory.readmodel.ReservationViewRepository
@@ -44,11 +45,17 @@ class InactiveProductReservationException(productId: String, orderRef: String) :
  *
  * ## What it deliberately does not touch
  *
- * Only reservations. Releasing and confirming an existing hold stay allowed on an inactive product,
- * and that is the point rather than an oversight: withdrawing a product must not strand goods
- * already committed to an approved order, which is exactly what blocking `ConfirmStockCommand`
- * would do. `AdjustStockCommand` is likewise untouched - stock of a discontinued product still gets
- * received, counted and written off.
+ * Only stock an order does not already hold. Releasing and confirming an existing hold stay allowed
+ * on an inactive product, and that is the point rather than an oversight: withdrawing a product must
+ * not strand goods already committed to an approved order, which is exactly what blocking
+ * `ConfirmStockCommand` would do. `AdjustStockCommand` is likewise untouched - stock of a
+ * discontinued product still gets received, counted and written off.
+ *
+ * [AmendReservationCommand] is judged, but only when it asks for **more** than the order already
+ * holds, because only then is it taking stock of a withdrawn product off the shelf. An amendment
+ * that lowers a line, or leaves it where it is, is let through - otherwise withdrawing one product
+ * would freeze every order containing it, and a customer could not even remove the withdrawn line
+ * from their own order, which is the one change they most obviously should be allowed to make.
  *
  * ## Two edges
  *
@@ -106,7 +113,11 @@ class ActiveProductReservationPolicy(
         messages: List<CommandMessage<*>>,
     ): BiFunction<Int, CommandMessage<*>, CommandMessage<*>> =
         BiFunction { _, message ->
-            (message.payload as? ReserveStockCommand)?.let(::rejectIfProductIsInactive)
+            when (val payload = message.payload) {
+                is ReserveStockCommand -> rejectIfProductIsInactive(payload)
+                is AmendReservationCommand -> rejectIfRaisingInactiveProduct(payload)
+                else -> Unit
+            }
             message
         }
 
@@ -144,6 +155,58 @@ class ActiveProductReservationPolicy(
             throw InactiveProductReservationException(stockItem.productId, command.orderRef)
         }
     }
+
+    /**
+     * The same rule for an amendment, applied to the increase rather than to the total.
+     *
+     * The quantity already held comes from the reservation view, which is the same picture the
+     * caller amended against. It can lag the aggregate by a moment, so an amendment right after
+     * another one may be judged on a slightly stale hold - the effect is only that a raise of one
+     * or two units is occasionally weighed as a raise of three, and `StockItem` decides the real
+     * arithmetic either way. Reading the aggregate here to do better would cost a load on every
+     * amendment, which is the trade this class already makes everywhere else.
+     */
+    private fun rejectIfRaisingInactiveProduct(command: AmendReservationCommand) {
+        val stockItem = stockItemViewRepository.findById(command.stockItemId.value).orElse(null) ?: return
+
+        val held = heldQuantity(command.orderRef, command.stockItemId.value)
+        if (held == null || command.quantity.amount <= held) {
+            // Not taking anything new off the shelf: either the order holds nothing here and the
+            // aggregate is about to refuse the amendment outright, or the line is level or coming
+            // down, which a withdrawn product is no reason to prevent.
+            return
+        }
+
+        val product = productViewRepository.findById(stockItem.productId).orElse(null)
+        if (product == null) {
+            log.warn(
+                "Amending stock item {} for order {} without a status check: the catalogue holds " +
+                    "no product {}",
+                command.stockItemId.value,
+                command.orderRef,
+                stockItem.productId,
+            )
+            return
+        }
+
+        if (product.status == ProductStatus.INACTIVE) {
+            log.info(
+                "Refusing to raise order {} from {} to {} of product {}: the product is inactive",
+                command.orderRef,
+                held,
+                command.quantity.amount,
+                stockItem.productId,
+            )
+            throw InactiveProductReservationException(stockItem.productId, command.orderRef)
+        }
+    }
+
+    /** How much of this stock item the order is recorded as holding, or null if it holds none. */
+    private fun heldQuantity(orderRef: String, stockItemId: String): Int? =
+        reservationViewRepository.findByOrderRef(orderRef)
+            ?.lines
+            ?.firstOrNull { it.stockItemId == stockItemId }
+            ?.quantity
 
     /** Whether this order already holds this stock item - see the note on redelivery above. */
     private fun alreadyReserved(orderRef: String, stockItemId: String): Boolean =

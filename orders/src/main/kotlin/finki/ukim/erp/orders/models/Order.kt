@@ -1,11 +1,13 @@
 package finki.ukim.erp.orders
 
 import finki.ukim.erp.orders.commands.ApproveOrderCommand
+import finki.ukim.erp.orders.commands.ApproveOrderForConfirmedStockCommand
 import finki.ukim.erp.orders.commands.CancelOrderCommand
 import finki.ukim.erp.orders.commands.CreateOrderCommand
 import finki.ukim.erp.orders.commands.GenerateInvoiceCommand
 import finki.ukim.erp.orders.commands.RegisterPaymentCommand
 import finki.ukim.erp.orders.commands.RejectOrderCommand
+import finki.ukim.erp.orders.commands.RejectOrderForWithdrawnStockCommand
 import finki.ukim.erp.orders.commands.ReverseInvoiceCommand
 import finki.ukim.erp.orders.commands.UpdateInvoiceLineItemsCommand
 import finki.ukim.erp.orders.commands.UpdateOrderItemsCommand
@@ -171,6 +173,70 @@ open class Order(
         }
 
         val event = OrderRejectedEvent(command)
+        on(event)
+        apply(event)
+    }
+
+    /**
+     * Approves an order whose stock inventory has confirmed out.
+     *
+     * A `@CommandHandler` where ordinary [approve] is not, and for the reason that keeps approval
+     * out of the aggregate in the first place: that path has to ask inventory whether the hold
+     * still stands, and an aggregate may not reach outside itself. This one needs no such question.
+     * Inventory has already committed the goods and is telling us so; the message is the proof.
+     *
+     * An order that is not pending is left alone rather than refused. This is driven by a Kafka
+     * message, which can be redelivered, and the second delivery finds the order already approved -
+     * which is what the message was asking for, so there is nothing to complain about.
+     */
+    @CommandHandler
+    fun approveForConfirmedStock(command: ApproveOrderForConfirmedStockCommand) {
+        if (status != OrderStatus.PENDING) {
+            return
+        }
+
+        val event = OrderApprovedEvent(orderId = id, items = orderItems.map { OrderItemEventData(it) })
+        on(event)
+        apply(event)
+    }
+
+    /**
+     * Closes an order whose goods inventory has taken back.
+     *
+     * Not [reject], and deliberately not routed through it. Rejection is an administrator refusing
+     * a *pending* order; this is the order being invalidated from outside, and by the time it
+     * arrives the order may have been approved - approval is now what stock confirmation produces,
+     * so the orders most likely to lose their stock are approved ones. Holding this to the pending
+     * rule would leave exactly those standing with nothing behind them.
+     *
+     * **An order with money against it is never closed this way.** Rejection moves no money: there
+     * is no reversal transaction and no refund, because a rejected order was never paid for. Using
+     * it on an order that *has* been paid would close the order and strand the customer's money
+     * with no record that anything is owed. That case is a person's to resolve - refund and cancel,
+     * or put the stock back - and this refuses loudly rather than deciding it silently.
+     *
+     * Already-closed orders are let through as a no-op rather than refused: this is driven by a
+     * Kafka message, which can be redelivered, and rejecting an order twice should be as harmless
+     * as rejecting it once.
+     */
+    @CommandHandler
+    fun rejectForWithdrawnStock(command: RejectOrderForWithdrawnStockCommand) {
+        if (status == OrderStatus.REJECTED || status == OrderStatus.CANCELLED) {
+            return
+        }
+        if (status != OrderStatus.PENDING && status != OrderStatus.APPROVED) {
+            throw InvalidOrderStateException(
+                "Order $id is $status and cannot be closed for withdrawn stock"
+            )
+        }
+        if (totalPaid().isPositive()) {
+            throw InvalidOrderStateException(
+                "Order $id has been paid and cannot be rejected because its stock was withdrawn; " +
+                    "cancel it instead so the payment is reversed"
+            )
+        }
+
+        val event = OrderRejectedEvent(orderId = id)
         on(event)
         apply(event)
     }

@@ -32,3 +32,39 @@ data class ProductDeactivatedExternalEventDTO(
     val name: String? = null,
     val deactivatedAt: String? = null
 )
+
+
+/**
+ * Inventory's `StockConfirmedExternalEvent` - the goods for an order have left the shelf.
+ *
+ * [orderRef] is the order's own id: inventory keys a reservation by the reference orders gave it
+ * when the stock was taken, so a message about a stock item is answerable against an order without
+ * anything here knowing what a stock item is.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class StockConfirmedExternalEventDTO(
+    val orderRef: String,
+    val stockItemId: String? = null,
+    val quantity: Int? = null
+)
+
+/**
+ * Inventory's `StockReservationReleasedExternalEvent` and `StockReturnedExternalEvent`, which this
+ * service reads as one thing: an order no longer has stock behind it.
+ *
+ * The two are different facts on inventory's side - a claim let go, versus goods physically put
+ * back - and the same fact here, so they share a DTO and a handler.
+ *
+ * [reason] is required, and that is the point of it. It says whether this service asked for the
+ * release or inventory decided it, and getting that wrong in either direction is severe: treating
+ * our own cancellations as withdrawals would reject every order the moment it was cancelled, and
+ * treating withdrawals as our own would leave orders standing on stock that is gone. A message
+ * without it fails to parse and is logged rather than being guessed at.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class StockReleasedExternalEventDTO(
+    val orderRef: String,
+    val reason: String,
+    val stockItemId: String? = null,
+    val quantity: Int? = null
+)
