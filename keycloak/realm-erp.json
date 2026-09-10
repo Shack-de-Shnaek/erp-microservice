@@ -16,6 +16,10 @@
       {
         "name": "CUSTOMER",
         "description": "May place, read and cancel their own orders."
+      },
+      {
+        "name": "SERVICE",
+        "description": "A service acting on its own behalf rather than a user's. Held by service accounts only, and what inventory's reservation and stock-reserve endpoints accept from a caller with no customer behind it - an order released because a Kafka event withdrew the product."
       }
     ]
   },
@@ -57,6 +61,12 @@
       "enabled": true,
       "serviceAccountClientId": "erp-mcp",
       "realmRoles": ["ADMIN", "CUSTOMER"]
+    },
+    {
+      "username": "service-account-erp-orders",
+      "enabled": true,
+      "serviceAccountClientId": "erp-orders",
+      "realmRoles": ["SERVICE"]
     }
   ],
   "clients": [
@@ -80,16 +90,6 @@
       }
     },
     {
-      "clientId": "erp-cli",
-      "name": "Command line / API clients",
-      "description": "Public client with direct access grants, for fetching a token with curl.",
-      "enabled": true,
-      "protocol": "openid-connect",
-      "publicClient": true,
-      "standardFlowEnabled": false,
-      "directAccessGrantsEnabled": true
-    },
-    {
       "clientId": "erp-mcp",
       "name": "MCP server (service account)",
       "description": "Confidential client for the MCP server. Service accounts only: it has no user behind it, so it takes a token with the client-credentials grant and never a login. Its own account holds ADMIN and CUSTOMER, which is what lets the write tools approve an order and place one.",
@@ -97,6 +97,18 @@
       "protocol": "openid-connect",
       "publicClient": false,
       "secret": "erp-mcp-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
+    },
+    {
+      "clientId": "erp-orders",
+      "name": "Orders service (service account)",
+      "description": "Confidential client for the orders service, used only when it calls inventory with no user behind the call - a Kafka event withdrawing a product makes it release the holds on the orders that wanted it, and there is no request to relay a token from. Its account holds SERVICE and nothing else: it can take and give back stock, and cannot touch the catalogue. A call that *does* have a user behind it relays that user's own token instead, so this identity never stands in for a customer.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "erp-orders-secret",
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true

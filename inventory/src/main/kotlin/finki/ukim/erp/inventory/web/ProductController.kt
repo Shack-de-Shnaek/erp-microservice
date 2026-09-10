@@ -28,6 +28,7 @@ import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.http.HttpStatus
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -40,6 +41,14 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
+/**
+ * The catalogue over HTTP.
+ *
+ * Reading it needs a token and nothing more - a customer choosing what to order reads the same
+ * catalogue an administrator maintains. Changing it is ADMIN only: every mutation below creates,
+ * renames, withdraws or removes something the rest of the system prices and reserves against, and
+ * no ordering flow has any reason to reach for one.
+ */
 @RestController
 @RequestMapping("/api/products")
 @Tag(name = "Products", description = "Product management endpoints")
@@ -57,6 +66,7 @@ class ProductController(
             ApiResponse(responseCode = "400", description = "Invalid request"),
         ],
     )
+    @PreAuthorize("hasRole('ADMIN')")
     fun create(@RequestBody request: CreateProductRequest): ResponseEntity<ProductView> {
         val command = CreateProductCommand(
             productId = ProductId.generate(),
@@ -111,6 +121,7 @@ class ProductController(
             ApiResponse(responseCode = "404", description = "Product not found"),
         ],
     )
+    @PreAuthorize("hasRole('ADMIN')")
     fun update(
         @PathVariable productId: String,
         @RequestBody request: UpdateProductRequest,
@@ -136,6 +147,7 @@ class ProductController(
             ApiResponse(responseCode = "404", description = "Product not found"),
         ],
     )
+    @PreAuthorize("hasRole('ADMIN')")
     fun patch(
         @PathVariable productId: String,
         @RequestBody request: PatchProductRequest,
@@ -167,6 +179,7 @@ class ProductController(
             ApiResponse(responseCode = "404", description = "Product not found"),
         ],
     )
+    @PreAuthorize("hasRole('ADMIN')")
     fun delete(@PathVariable productId: String): ResponseEntity<Void> {
         val before = queryById(productId) ?: return ResponseEntity.notFound().build()
         commandGateway.sendAndWait<Any>(DeactivateProductCommand(ProductId.fromString(productId)))
@@ -198,6 +211,7 @@ class ProductController(
             ApiResponse(responseCode = "404", description = "Product not found"),
         ],
     )
+    @PreAuthorize("hasRole('ADMIN')")
     fun deactivate(@PathVariable productId: String): ResponseEntity<ProductView> {
         val before = queryById(productId)
         commandGateway.sendAndWait<Any>(DeactivateProductCommand(ProductId.fromString(productId)))
@@ -213,6 +227,7 @@ class ProductController(
             ApiResponse(responseCode = "404", description = "Product not found"),
         ],
     )
+    @PreAuthorize("hasRole('ADMIN')")
     fun reactivate(@PathVariable productId: String): ResponseEntity<ProductView> {
         val before = queryById(productId)
         commandGateway.sendAndWait<Any>(ReactivateProductCommand(ProductId.fromString(productId)))

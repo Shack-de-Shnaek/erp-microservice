@@ -23,6 +23,28 @@ spring:
           # and the issuer string is only ever compared against the `iss` claim, never dialled.
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/erp}
           jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/erp/protocol/openid-connect/certs}
+      # This service's own identity, for the calls to inventory that no user asked for - a Kafka
+      # event withdrawing a product makes it release the holds on the orders that wanted it, and
+      # there is no request and no customer behind that. Client credentials against the same realm
+      # that issues user tokens, as the `erp-orders` client whose service account holds SERVICE.
+      # See ServiceTokenSource; the interceptor that uses it prefers a relayed user token whenever
+      # the call is happening on an inbound request's thread.
+      #
+      # No `issuer-uri` on the provider, deliberately - Boot reads that as an instruction to fetch
+      # the OIDC discovery document at *startup*, which fails the boot outright whenever Keycloak
+      # is not up yet, and would dial the browser-facing host from inside the container. Naming the
+      # token endpoint skips discovery entirely; the token it mints is verified by inventory
+      # against the realm's key set either way.
+      client:
+        provider:
+          keycloak:
+            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8080/realms/erp/protocol/openid-connect/token}
+        registration:
+          orders-service:
+            provider: keycloak
+            client-id: ${ORDERS_CLIENT_ID:erp-orders}
+            client-secret: ${ORDERS_CLIENT_SECRET:erp-orders-secret}
+            authorization-grant-type: client_credentials
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:

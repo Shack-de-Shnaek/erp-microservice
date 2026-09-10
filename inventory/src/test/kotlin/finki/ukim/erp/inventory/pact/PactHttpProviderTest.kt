@@ -29,7 +29,10 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.TestTemplate
 import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.annotation.Autowired
+import finki.ukim.erp.inventory.config.TestSecurityConfig
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
+import org.springframework.test.context.ActiveProfiles
 import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.test.context.junit.jupiter.SpringExtension
 
@@ -37,6 +40,8 @@ import org.springframework.test.context.junit.jupiter.SpringExtension
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Provider("inventory")
 @PactFolder("pacts/http")
+@ActiveProfiles("test")
+@Import(TestSecurityConfig::class)
 class PactHttpProviderTest {
 
     @LocalServerPort

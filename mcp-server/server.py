@@ -14,19 +14,19 @@ the same URL space a browser or a curl script sees, and every call carries a bea
 
 ## Authentication
 
-Two grants, because there are two things this server might be acting as:
+One grant, because there is one thing this server is: the `erp-mcp` confidential client, whose
+service account holds ADMIN and CUSTOMER. It authenticates with client credentials against the same
+`erp` realm that issues every other token in the system, so the client id and secret are this
+server's whole credential - there is nothing for a person driving it to log into.
 
-  client credentials  (default) The server is itself - the `erp-mcp` service account, which holds
-                      ADMIN and CUSTOMER. Nothing to configure beyond the client secret.
-  password            Set ERP_USERNAME and ERP_PASSWORD and it acts as that Keycloak user through
-                      the public `erp-cli` client instead. Needed for anything the API scopes to
-                      the caller: `my_orders` reads the token's subject, and `cancel_order`
-                      refuses when the subject is not the order's customer.
+That is what keeps the three ways of reaching it identical. A terminal client, a Streamlit UI and
+LM Studio all speak MCP to this process and nothing else; none of them holds an ERP credential, and
+none of them needs a Keycloak client of its own.
 
-Under client credentials the subject is the service account, so orders placed by `create_order`
-belong to it - they will not show up as the sample customer's, and only the same service account
-can cancel them. That is a property of the ordering rules, not a limitation here: an order belongs
-to whoever's token placed it.
+The subject of that token is the service account, so orders placed by `create_order` belong to
+*it* - they will not show up as the sample customer's, and only the same service account can cancel
+them. That is a property of the ordering rules, not a limitation here: an order belongs to
+whoever's token placed it.
 
 Tokens are cached until shortly before they expire and then re-fetched; a 401 from the gateway
 also forces one retry with a fresh token, which covers a token invalidated early (a realm reimport,
@@ -78,13 +78,6 @@ TOKEN_URL = os.environ.get(
 CLIENT_ID = os.environ.get("MCP_CLIENT_ID", "erp-mcp")
 CLIENT_SECRET = os.environ.get("MCP_CLIENT_SECRET", "erp-mcp-secret")
 
-# Acting as a user instead of as the service account. Both must be set for the password grant to
-# be used; the client is the public `erp-cli`, which is the one in the realm with direct access
-# grants enabled.
-USERNAME = os.environ.get("ERP_USERNAME")
-PASSWORD = os.environ.get("ERP_PASSWORD")
-CLI_CLIENT_ID = os.environ.get("ERP_CLI_CLIENT_ID", "erp-cli")
-
 ENABLE_WRITES = os.environ.get("ERP_ENABLE_WRITES", "true").lower() not in ("false", "0", "no")
 
 TRANSPORT = os.environ.get("MCP_TRANSPORT", "stdio")
@@ -122,20 +115,11 @@ class _TokenCache:
         if self._token and time.monotonic() < self._expires_at:
             return self._token
 
-        if USERNAME and PASSWORD:
-            form = {
-                "grant_type": "password",
-                "client_id": CLI_CLIENT_ID,
-                "username": USERNAME,
-                "password": PASSWORD,
-                "scope": "openid",
-            }
-        else:
-            form = {
-                "grant_type": "client_credentials",
-                "client_id": CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
-            }
+        form = {
+            "grant_type": "client_credentials",
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+        }
 
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
             resp = await client.post(TOKEN_URL, data=form)
@@ -198,8 +182,8 @@ def _describe(resp: httpx.Response) -> str:
 
     if resp.status_code == 401:
         return (
-            "Error: 401 Unauthorized - the gateway rejected the token. Check MCP_CLIENT_ID / "
-            "MCP_CLIENT_SECRET (or ERP_USERNAME / ERP_PASSWORD) and that the erp realm is imported."
+            "Error: 401 Unauthorized - the gateway rejected the token. Check MCP_CLIENT_ID and "
+            "MCP_CLIENT_SECRET, and that the erp realm is imported."
         )
     if resp.status_code == 403:
         return (
@@ -315,9 +299,8 @@ async def list_orders_by_status(status: str) -> str:
 async def my_orders() -> str:
     """List the orders belonging to the identity this server authenticates as.
 
-    Under the default client-credentials grant that identity is the `erp-mcp` service account, so
-    this returns the orders this server placed itself rather than any person's. Set ERP_USERNAME
-    and ERP_PASSWORD to read a real user's orders instead.
+    That identity is the `erp-mcp` service account, so this returns the orders this server placed
+    itself rather than any person's - which is also the set `cancel_order` is allowed to withdraw.
     """
     return await _run("GET", "/api/orders/mine")
 

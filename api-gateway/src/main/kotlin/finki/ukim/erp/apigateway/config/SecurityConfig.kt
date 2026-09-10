@@ -84,11 +84,28 @@ class SecurityConfig {
     private companion object {
         const val BEARER_PREFIX = "Bearer "
 
-        /** Health checks and documentation: reachable without a token, in either chain. */
+        /**
+         * Health checks and documentation: reachable without a token, in either chain.
+         *
+         * The documentation describes the contract and exposes none of the data behind it, and it
+         * has to be readable before a caller has a token - it is where they find out how to use
+         * one. `/swagger-ui.html` is listed separately from everything under `/swagger-ui/`
+         * because it is the redirect into that directory rather than a path beneath it, and
+         * `/webjars/` is where the UI's own assets are served from.
+         *
+         * The `/docs/` entry covers the proxy routes onto the two services' documents (see
+         * RoutesConfig). Permitting them here is what makes them public, but not more public than
+         * they already are: both services permit their own `/v3/api-docs` and springwolf
+         * endpoints unauthenticated, and nothing else lives under that prefix. Every actual API
+         * path stays under `/api/`, which is not matched here.
+         */
         val PUBLIC_PATHS = arrayOf(
             "/actuator/**",
+            "/swagger-ui.html",
             "/swagger-ui/**",
             "/v3/api-docs/**",
+            "/webjars/**",
+            "/docs/**",
         )
     }
 }

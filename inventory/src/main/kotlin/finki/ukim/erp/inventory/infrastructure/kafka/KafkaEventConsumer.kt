@@ -32,12 +32,23 @@ class KafkaEventConsumer(
     /**
      * Clears the reservations held for an order, by the order's id. One listener covers every way
      * an order can end, because orders says all of them here.
+     *
+     * Every exception is caught. A message that cannot be read is one bad message - very often one
+     * somebody typed by hand into a console producer - and letting it escape would fail the batch,
+     * move no offset, and have the broker redeliver the same unreadable message forever while
+     * nothing else on the partition gets through. Logging it and moving on keeps one bad message
+     * from becoming an outage; the trade is that a genuinely broken message is dropped rather than
+     * retried, which is why the log line carries the payload that failed.
      */
     @KafkaListener(topics = [ORDER_NULLIFIED_TOPIC])
     fun onOrderNullified(message: String) {
         log.info("Received {} message: {}", ORDER_NULLIFIED_TOPIC, message)
-        val dto = objectMapper.readValue(message, OrderNullifiedEventDTO::class.java)
-        orderLifecycleSaga.onOrderNullified(orderEventTranslator.toInternal(dto))
+        try {
+            val dto = objectMapper.readValue(message, OrderNullifiedEventDTO::class.java)
+            orderLifecycleSaga.onOrderNullified(orderEventTranslator.toInternal(dto))
+        } catch (ex: Exception) {
+            log.error("Failed to process event from topic {}: {}", ORDER_NULLIFIED_TOPIC, message, ex)
+        }
     }
 
     companion object {

@@ -126,6 +126,15 @@ services:
       DB_USERNAME: inventory
       DB_PASSWORD: password
       KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      # The same realm the gateway and orders validate against. Inventory is a resource server
+      # too now: tokens arrive here relayed by the gateway, minted by orders' own service account,
+      # or fetched by the MCP server, and all three are checked against this one issuer. The two
+      # hostnames differ on purpose; see KC_HOSTNAME on the keycloak service.
+      KEYCLOAK_ISSUER_URI: http://localhost:8080/realms/erp
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/erp/protocol/openid-connect/certs
+      # Where a browser reaches this service, which is the published port and not the one the
+      # container listens on. Only the "Try it out" server in its OpenAPI document uses it.
+      ERP_DOCS_PUBLIC_URL: http://localhost:8081
       CONSUL_HOST: consul
       CONSUL_PORT: 8500
     ports:
@@ -136,6 +145,11 @@ services:
       broker:
         condition: service_healthy
       consul:
+        condition: service_healthy
+      # Not for startup - the key set is fetched lazily, on the first token this service is asked
+      # to verify, so it boots whether or not Keycloak is up. It is here so that the first request
+      # after `docker compose up` is not the one that finds the realm still importing.
+      keycloak:
         condition: service_healthy
     networks:
       - app-network
@@ -155,6 +169,16 @@ services:
       # so a mismatch between these two is a 401 on every request that got past the front door.
       KEYCLOAK_ISSUER_URI: http://localhost:8080/realms/erp
       KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/erp/protocol/openid-connect/certs
+      # This service's own credentials, for the calls to inventory that have no user behind them -
+      # releasing the holds on orders whose product was just withdrawn, for instance, which is
+      # driven by a Kafka event and not by anybody's request. The account behind them holds SERVICE
+      # and nothing more. Token endpoint as this container reaches it, not as a browser does.
+      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/erp/protocol/openid-connect/token
+      ORDERS_CLIENT_ID: erp-orders
+      ORDERS_CLIENT_SECRET: erp-orders-secret
+      # Where a browser reaches this service; only the "Try it out" server in its OpenAPI
+      # document uses it.
+      ERP_DOCS_PUBLIC_URL: http://localhost:8089
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_CLOUD_CONSUL_PORT: 8500
     ports:
@@ -165,6 +189,11 @@ services:
       broker:
         condition: service_healthy
       consul:
+        condition: service_healthy
+      # This service does dial Keycloak of its own accord - the client-credentials grant above -
+      # so waiting for the realm to exist saves a first call that fails for no better reason than
+      # ordering.
+      keycloak:
         condition: service_healthy
     networks:
       - app-network

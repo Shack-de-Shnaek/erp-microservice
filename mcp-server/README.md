@@ -55,7 +55,7 @@ MCP Client (LM Studio / Claude Desktop / opencode / terminal)
         ▼
    mcp-server (Python)
         │                                    ┌──────────┐
-        │  client_credentials / password ───▶│ Keycloak │  (erp realm)
+        │  client_credentials ─────────────▶│ Keycloak │  (erp realm)
         │  ◀─── access token                 └──────────┘
         │
         │ HTTP + Authorization: Bearer ...
@@ -77,21 +77,20 @@ hardcoded ports.
 
 ## Authentication
 
-Two grants, because there are two things the server might be acting as.
-
-**Client credentials (default).** The server is itself: the `erp-mcp` confidential client in
+One grant, because there is one thing this server is: the `erp-mcp` confidential client in
 `keycloak/realm-erp.json`, with service accounts enabled and the ADMIN and CUSTOMER realm roles on
-its service account. Nothing to configure beyond the client secret.
+its service account. It takes a token with the client-credentials grant against the same `erp`
+realm that issues every other token in the system. The client id and secret are the whole
+credential; there is nothing for a person driving it to log into.
 
-**Password grant.** Set `ERP_USERNAME` and `ERP_PASSWORD` and it acts as that Keycloak user
-instead, through the public `erp-cli` client. Needed for anything the API scopes to the caller:
-`my_orders` reads the token's subject, and `cancel_order` refuses when the subject is not the
-order's customer.
+That is what keeps the three ways of reaching it (below) identical. A terminal client, the
+Streamlit UI and LM Studio all speak MCP to this process and nothing else - none of them holds an
+ERP credential of its own, and none of them needs a Keycloak client of its own.
 
-Under client credentials the subject is the service account, so orders placed with `create_order`
-belong to *it* - they will not appear among the sample customer's orders, and only the same service
-account can cancel them. That is the ordering rules working as intended: an order belongs to
-whoever's token placed it.
+The subject of that token is the service account, so orders placed with `create_order` belong to
+*it* - they will not appear among the sample customer's orders, and only the same service account
+can cancel them. That is the ordering rules working as intended: an order belongs to whoever's
+token placed it.
 
 Tokens are cached until 30 seconds before they expire and then re-fetched. A 401 from the gateway
 also forces one retry with a fresh token, which covers a token invalidated early - a realm
@@ -111,8 +110,6 @@ authorization failure rather than retried in a loop.
 | `KEYCLOAK_TOKEN_URL` | `http://localhost:8080/realms/erp/protocol/openid-connect/token` | Token endpoint, as this process reaches it |
 | `MCP_CLIENT_ID` | `erp-mcp` | Confidential client for the client-credentials grant |
 | `MCP_CLIENT_SECRET` | `erp-mcp-secret` | Its secret |
-| `ERP_USERNAME` / `ERP_PASSWORD` | unset | Set both to act as that user instead of the service account |
-| `ERP_CLI_CLIENT_ID` | `erp-cli` | Public client used for the password grant |
 | `ERP_ENABLE_WRITES` | `true` | `false` serves only the read tools |
 | `ERP_HTTP_TIMEOUT` | `10.0` | Seconds, per request to the gateway |
 | `MCP_TRANSPORT` | `stdio` | `stdio`, or `streamable-http` to listen on a port |

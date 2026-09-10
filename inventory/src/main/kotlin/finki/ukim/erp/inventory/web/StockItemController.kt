@@ -32,6 +32,7 @@ import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.http.HttpStatus
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -43,6 +44,15 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
+/**
+ * The stock ledger over HTTP.
+ *
+ * Three audiences, three rules. Reads need a token only. Maintaining the ledger - opening a stock
+ * item, adjusting what is on the shelf, moving a reorder threshold, removing an item - is ADMIN.
+ * Moving stock in and out of reserve is ADMIN or SERVICE: these are the low-level counterpart of
+ * `/api/reservations`, addressed one product at a time, and the only non-human caller that has
+ * business here is another service acting on its own behalf.
+ */
 @RestController
 @RequestMapping("/api/stock")
 @Tag(name = "Stock", description = "Stock management endpoints")
@@ -60,6 +70,7 @@ class StockItemController(
             ApiResponse(responseCode = "400", description = "Invalid request"),
         ],
     )
+    @PreAuthorize("hasRole('ADMIN')")
     fun create(@RequestBody request: CreateStockItemRequest): ResponseEntity<StockItemView> {
         val command = CreateStockItemCommand(
             stockItemId = StockItemId.generate(),
@@ -121,6 +132,7 @@ class StockItemController(
             ApiResponse(responseCode = "404", description = "Stock record not found"),
         ],
     )
+    @PreAuthorize("hasRole('ADMIN')")
     fun updateReorderThreshold(
         @PathVariable productId: String,
         @RequestBody request: UpdateReorderThresholdRequest,
@@ -141,6 +153,7 @@ class StockItemController(
             ApiResponse(responseCode = "404", description = "Stock record not found"),
         ],
     )
+    @PreAuthorize("hasRole('ADMIN')")
     fun delete(@PathVariable productId: String): ResponseEntity<Void> {
         val before = queryByProductId(productId) ?: return ResponseEntity.notFound().build()
         val stockItemId = stockItemIdFrom(before) ?: return ResponseEntity.notFound().build()
@@ -157,6 +170,7 @@ class StockItemController(
             ApiResponse(responseCode = "404", description = "Stock record not found"),
         ],
     )
+    @PreAuthorize("hasRole('ADMIN')")
     fun adjust(
         @PathVariable productId: String,
         @RequestBody request: AdjustStockRequest,
@@ -183,6 +197,7 @@ class StockItemController(
         ).get()
 
     @PostMapping("/{productId}/reserve")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SERVICE')")
     fun reserve(
         @PathVariable productId: String,
         @RequestBody request: ReserveStockRequest,
@@ -196,6 +211,7 @@ class StockItemController(
     }
 
     @PostMapping("/{productId}/release")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SERVICE')")
     fun release(
         @PathVariable productId: String,
         @RequestBody request: ReleaseReservationRequest,
@@ -207,6 +223,7 @@ class StockItemController(
     }
 
     @PostMapping("/{productId}/confirm")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SERVICE')")
     fun confirm(
         @PathVariable productId: String,
         @RequestBody request: ConfirmStockRequest,

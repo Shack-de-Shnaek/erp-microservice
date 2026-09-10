@@ -16,7 +16,10 @@ import finki.ukim.erp.inventory.domain.stockitem.StockConfirmedEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockItemCreatedEvent
 import finki.ukim.erp.inventory.domain.stockitem.StockItemId
 import finki.ukim.erp.inventory.domain.stockitem.StockReservedEvent
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 
 class AbstractEventTest {
@@ -46,6 +49,34 @@ class AbstractEventTest {
         assertEquals("stock.item.created", stockItemCreated.eventTopic())
         assertEquals("stock.reserved", stockReserved.eventTopic())
         assertEquals("stock.confirmed", stockConfirmed.eventTopic())
+    }
+
+    @Test
+    fun `an event reports its own class name as its type`() {
+        val productId = ProductId.generate()
+        val productCreated = ProductCreatedEvent(
+            productId,
+            Sku("SKU-001"),
+            ProductName("Widget"),
+            UnitOfMeasure("pcs"),
+        )
+
+        assertEquals("ProductCreatedEvent", productCreated.eventType())
+        assertEquals("ProductDeactivatedEvent", ProductDeactivatedEvent(productId).eventType())
+    }
+
+    @Test
+    fun `the type is written into the JSON as _eventType and the envelope is not`() {
+        val tree = ObjectMapper().registerKotlinModule()
+            .valueToTree<com.fasterxml.jackson.databind.JsonNode>(
+                ProductDeactivatedEvent(ProductId.generate()),
+            )
+
+        assertEquals("ProductDeactivatedEvent", tree.get("_eventType").asText())
+        // The derived topic and the publishing decision are ours, not part of any contract, and
+        // `identifier` is a second copy of the id the event already carries under its own name.
+        assertFalse(tree.has("eventTopic"), tree.toString())
+        assertFalse(tree.has("identifier"), tree.toString())
     }
 
     @Test

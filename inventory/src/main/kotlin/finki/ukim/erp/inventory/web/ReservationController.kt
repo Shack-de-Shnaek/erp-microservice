@@ -29,6 +29,7 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import org.springframework.http.HttpStatus
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -40,6 +41,15 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
+/**
+ * An order's hold on stock, over HTTP.
+ *
+ * This is the endpoint orders actually calls, and the roles reflect who can be behind such a call:
+ * CUSTOMER, because a customer placing an order through the gateway has their token relayed here
+ * by orders; SERVICE, because orders also reserves and releases off the back of Kafka events,
+ * where there is no user and it uses its own service-account token; ADMIN, because an
+ * administrator can do either by hand. Reads need a token only.
+ */
 @RestController
 @RequestMapping("/api/reservations")
 @Tag(name = "Reservations", description = "Reservation management endpoints")
@@ -65,6 +75,7 @@ class ReservationController(
             ApiResponse(responseCode = "400", description = "Invalid request, unknown or inactive product, or insufficient stock"),
         ],
     )
+    @PreAuthorize("hasAnyRole('ADMIN', 'SERVICE', 'CUSTOMER')")
     fun create(@RequestBody request: CreateReservationRequest): ResponseEntity<ReservationView> {
         val lines = validated(request)
 
@@ -169,6 +180,7 @@ class ReservationController(
             ApiResponse(responseCode = "404", description = "This order holds no reservation to amend"),
         ],
     )
+    @PreAuthorize("hasAnyRole('ADMIN', 'SERVICE', 'CUSTOMER')")
     fun amend(
         @PathVariable orderRef: String,
         @RequestBody request: AmendReservationRequest,
@@ -400,6 +412,7 @@ class ReservationController(
             ApiResponse(responseCode = "404", description = "Reservation not found"),
         ],
     )
+    @PreAuthorize("hasAnyRole('ADMIN', 'SERVICE', 'CUSTOMER')")
     fun release(@PathVariable orderRef: String): ResponseEntity<Void> {
         val reservation = queryGateway.query(
             FindReservationByOrderRefQuery(orderRef),
@@ -428,6 +441,7 @@ class ReservationController(
             ApiResponse(responseCode = "404", description = "Reservation not found"),
         ],
     )
+    @PreAuthorize("hasAnyRole('ADMIN', 'SERVICE', 'CUSTOMER')")
     fun confirm(@PathVariable orderRef: String): ResponseEntity<ReservationView> {
         val reservation = queryGateway.query(
             FindReservationByOrderRefQuery(orderRef),

@@ -21,7 +21,13 @@ import org.springframework.context.annotation.Configuration
  * /api/orders/{id}/approve         -> orders     /orders/{id}/approve
  * /api/orders/{id}/payments        -> orders     /orders/{id}/payments
  * /api/orders/invoices/{id}        -> orders     /invoices/{id}
+ *
+ * /docs/inventory/v3/api-docs      -> inventory  /v3/api-docs
+ * /docs/orders/v3/api-docs         -> orders     /v3/api-docs
  * ```
+ *
+ * The `/docs/` pair is what lets this gateway serve one Swagger UI with both services in its
+ * dropdown: each document is fetched from the gateway's own origin.
  *
  * The rewrites exist because the two services do not agree on where their endpoints live -
  * inventory puts everything under `/api`, orders puts orders at `/orders` and invoices at
@@ -70,6 +76,33 @@ class RoutesConfig {
                 .path("/api/orders", "/api/orders/**")
                 .filters { it.rewritePath("/api/orders(?<segment>.*)", "/orders\${segment}") }
                 .uri("lb://orders")
+        }
+        // The two services' own documentation, proxied. `/docs/<service>/` maps onto the root of
+        // that service, so `/docs/orders/v3/api-docs` is orders' OpenAPI document and
+        // `/docs/inventory/springwolf/docs` is inventory's AsyncAPI one.
+        //
+        // These exist so the Swagger UI this gateway serves can fetch both documents from its own
+        // origin. Pointing it straight at localhost:8081 and localhost:8089 would work only as
+        // long as those ports are published to the host, and only with CORS opened up on both
+        // services - a browser fetching an OpenAPI document cross-origin is a cross-origin request
+        // like any other. Neither holds in a deployment, where the services are reachable only
+        // inside the network; through `lb://` these routes work either way.
+        //
+        // A separate prefix rather than a path under `/api/**`, because the rewrites there are
+        // written for each service's API shape and neither lands on the service root:
+        // `/api/orders/v3/api-docs` would arrive at orders as `/orders/v3/api-docs`, which is not
+        // where springdoc serves it.
+        .route("orders-docs") { route ->
+            route
+                .path("/docs/orders/**")
+                .filters { it.rewritePath("/docs/orders/(?<segment>.*)", "/\${segment}") }
+                .uri("lb://orders")
+        }
+        .route("inventory-docs") { route ->
+            route
+                .path("/docs/inventory/**")
+                .filters { it.rewritePath("/docs/inventory/(?<segment>.*)", "/\${segment}") }
+                .uri("lb://inventory")
         }
         .build()
 }

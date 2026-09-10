@@ -11,6 +11,37 @@ BASE_URL="http://localhost:${INVENTORY_PORT:-8081}"
 PASS=0
 FAIL=0
 
+# -----------------------------------------------------------
+# A token, before anything else.
+#
+# The inventory service is an OAuth2 resource server: every /api call needs a bearer token from the
+# `erp` realm, and the catalogue and ledger writes below need ADMIN. So this script takes one the
+# way a script should - client credentials, no user and no password prompt - as the `erp-mcp`
+# confidential client, whose service account holds ADMIN and CUSTOMER.
+#
+# Talking to the service directly rather than through the gateway is deliberate: these are the
+# service's own endpoints, and the point of the exercise is that they are protected wherever they
+# are reached from. The token is the same one either way.
+# -----------------------------------------------------------
+KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:8080}"
+CLIENT_ID="${ERP_CLIENT_ID:-erp-mcp}"
+CLIENT_SECRET="${ERP_CLIENT_SECRET:-erp-mcp-secret}"
+
+echo "=== Obtaining an access token from $KEYCLOAK_URL (realm erp, client $CLIENT_ID) ==="
+TOKEN=$(curl -s -X POST "$KEYCLOAK_URL/realms/erp/protocol/openid-connect/token" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "grant_type=client_credentials" \
+    -d "client_id=$CLIENT_ID" \
+    -d "client_secret=$CLIENT_SECRET" \
+    | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || echo "")
+
+if [ -z "$TOKEN" ]; then
+    echo "FAIL: could not obtain a token from Keycloak at $KEYCLOAK_URL."
+    echo "      Every request below would be a 401, so there is nothing worth running."
+    echo "      Check that the stack is up and that the erp realm is imported."
+    exit 1
+fi
+
 assert_contains() {
     local label="$1" body="$2" expected="$3"
     if echo "$body" | grep -q "$expected"; then
@@ -41,7 +72,7 @@ echo ""
 # 1. Health check
 # -----------------------------------------------------------
 echo "[1] Health check"
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/actuator/health")
+HTTP_CODE=$(curl -s -H "Authorization: Bearer $TOKEN" -o /dev/null -w "%{http_code}" "$BASE_URL/actuator/health")
 assert_status "GET /actuator/health returns 200" "$HTTP_CODE" "200"
 echo ""
 
@@ -49,7 +80,7 @@ echo ""
 # 2. Create a product
 # -----------------------------------------------------------
 echo "[2] Create a product"
-PRODUCT_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/products" \
+PRODUCT_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" -w "\n%{http_code}" -X POST "$BASE_URL/api/products" \
     -H "Content-Type: application/json" \
     -d '{"sku":"SMOKE-001","name":"Smoke Test Widget","unitOfMeasure":"pcs"}')
 HTTP_CODE=$(echo "$PRODUCT_RESP" | tail -1)
@@ -69,7 +100,7 @@ echo ""
 # 3. Get product by ID
 # -----------------------------------------------------------
 echo "[3] Get product by ID"
-GET_RESP=$(curl -s -w "\n%{http_code}" "$BASE_URL/api/products/$PRODUCT_ID")
+GET_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" -w "\n%{http_code}" "$BASE_URL/api/products/$PRODUCT_ID")
 HTTP_CODE=$(echo "$GET_RESP" | tail -1)
 BODY=$(echo "$GET_RESP" | sed '$d')
 assert_status "GET /api/products/{id} returns 200" "$HTTP_CODE" "200"
@@ -80,7 +111,7 @@ echo ""
 # 4. Create a stock item for the product
 # -----------------------------------------------------------
 echo "[4] Create a stock item"
-STOCK_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/stock" \
+STOCK_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" -w "\n%{http_code}" -X POST "$BASE_URL/api/stock" \
     -H "Content-Type: application/json" \
     -d "{\"productId\":\"$PRODUCT_ID\",\"onHand\":50,\"reorderThreshold\":10}")
 HTTP_CODE=$(echo "$STOCK_RESP" | tail -1)
@@ -93,7 +124,7 @@ echo ""
 # 5. Get stock item by product ID
 # -----------------------------------------------------------
 echo "[5] Get stock item by product ID"
-GET_STOCK=$(curl -s -w "\n%{http_code}" "$BASE_URL/api/stock/$PRODUCT_ID")
+GET_STOCK=$(curl -s -H "Authorization: Bearer $TOKEN" -w "\n%{http_code}" "$BASE_URL/api/stock/$PRODUCT_ID")
 HTTP_CODE=$(echo "$GET_STOCK" | tail -1)
 BODY=$(echo "$GET_STOCK" | sed '$d')
 assert_status "GET /api/stock/{productId} returns 200" "$HTTP_CODE" "200"
@@ -104,7 +135,7 @@ echo ""
 # 6. Reserve stock
 # -----------------------------------------------------------
 echo "[6] Reserve stock"
-RESERVE_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/stock/$PRODUCT_ID/reserve" \
+RESERVE_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" -w "\n%{http_code}" -X POST "$BASE_URL/api/stock/$PRODUCT_ID/reserve" \
     -H "Content-Type: application/json" \
     -d '{"orderRef":"smoke-order-1","quantity":10}')
 HTTP_CODE=$(echo "$RESERVE_RESP" | tail -1)
@@ -117,7 +148,7 @@ echo ""
 # 7. Confirm stock (fulfill reservation)
 # -----------------------------------------------------------
 echo "[7] Confirm stock"
-CONFIRM_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/stock/$PRODUCT_ID/confirm" \
+CONFIRM_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" -w "\n%{http_code}" -X POST "$BASE_URL/api/stock/$PRODUCT_ID/confirm" \
     -H "Content-Type: application/json" \
     -d '{"orderRef":"smoke-order-1"}')
 HTTP_CODE=$(echo "$CONFIRM_RESP" | tail -1)
@@ -131,7 +162,7 @@ echo ""
 # 8. Adjust stock
 # -----------------------------------------------------------
 echo "[8] Adjust stock (restock)"
-ADJUST_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/stock/$PRODUCT_ID/adjust" \
+ADJUST_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" -w "\n%{http_code}" -X POST "$BASE_URL/api/stock/$PRODUCT_ID/adjust" \
     -H "Content-Type: application/json" \
     -d '{"adjustment":20,"reason":"restock"}')
 HTTP_CODE=$(echo "$ADJUST_RESP" | tail -1)
@@ -144,7 +175,7 @@ echo ""
 # 9. Get low-stock items
 # -----------------------------------------------------------
 echo "[9] Get low-stock items"
-LOW_RESP=$(curl -s -w "\n%{http_code}" "$BASE_URL/api/stock/low-stock")
+LOW_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" -w "\n%{http_code}" "$BASE_URL/api/stock/low-stock")
 HTTP_CODE=$(echo "$LOW_RESP" | tail -1)
 assert_status "GET /api/stock/low-stock returns 200" "$HTTP_CODE" "200"
 echo ""
@@ -153,7 +184,7 @@ echo ""
 # 10. Get stock summary
 # -----------------------------------------------------------
 echo "[10] Get stock summary"
-SUMMARY_RESP=$(curl -s -w "\n%{http_code}" "$BASE_URL/api/stock/summary")
+SUMMARY_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" -w "\n%{http_code}" "$BASE_URL/api/stock/summary")
 HTTP_CODE=$(echo "$SUMMARY_RESP" | tail -1)
 BODY=$(echo "$SUMMARY_RESP" | sed '$d')
 assert_status "GET /api/stock/summary returns 200" "$HTTP_CODE" "200"
@@ -164,7 +195,7 @@ echo ""
 # 11. Idempotent re-reserve (same order ref → no-op)
 # -----------------------------------------------------------
 echo "[11] Idempotent re-reserve"
-RERESERVE_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/stock/$PRODUCT_ID/reserve" \
+RERESERVE_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" -w "\n%{http_code}" -X POST "$BASE_URL/api/stock/$PRODUCT_ID/reserve" \
     -H "Content-Type: application/json" \
     -d '{"orderRef":"smoke-order-1","quantity":10}')
 HTTP_CODE=$(echo "$RERESERVE_RESP" | tail -1)
@@ -177,7 +208,7 @@ echo ""
 # 12. List products
 # -----------------------------------------------------------
 echo "[12] List products"
-LIST_RESP=$(curl -s -w "\n%{http_code}" "$BASE_URL/api/products")
+LIST_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" -w "\n%{http_code}" "$BASE_URL/api/products")
 HTTP_CODE=$(echo "$LIST_RESP" | tail -1)
 assert_status "GET /api/products returns 200" "$HTTP_CODE" "200"
 echo ""

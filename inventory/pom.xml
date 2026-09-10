@@ -121,6 +121,13 @@
             <version>2.16.1</version>
         </dependency>
 
+        <!-- Mock JWTs for the authorization tests: a request with ADMIN, or with CUSTOMER, and
+             no Keycloak anywhere in the run. -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
