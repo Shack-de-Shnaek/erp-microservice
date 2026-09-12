@@ -14,6 +14,7 @@ credentials the configured clients will use:
 
 import asyncio
 import ast
+import os
 import sys
 
 from mcp import ClientSession, StdioServerParameters
@@ -66,15 +67,20 @@ async def run_reads(session: ClientSession) -> None:
 
 
 async def run_writes(session: ClientSession) -> None:
-    """Place an order against a product that has stock, then cancel it.
+    """Place an order against a product that can actually be ordered, then cancel it.
 
     It has to be a *real* product with enough on hand: the orders service validates every line
     against inventory before it will create anything, so an invented product id would only ever
     test the rejection path.
+
+    The product comes from `catalog`, not from `list_stock`, for the reason that tool exists. The
+    stock ledger carries no status, so choosing from it picks withdrawn products as readily as
+    sold ones - and this test did, then reported the orders service correctly refusing one as a
+    failure of the write path.
     """
     print("--- Test: create_order ---")
-    stock = await call(session, "list_stock", {})
-    product_id = pick_available_product(stock)
+    catalog = await call(session, "catalog", {"only_orderable": True})
+    product_id = pick_available_product(catalog)
     if product_id is None:
         record("create_order", "SKIP: no product with available stock to order", False)
         return
@@ -103,29 +109,27 @@ async def run_writes(session: ClientSession) -> None:
     record("cancel_order", output, not is_error(output))
 
 
-def pick_available_product(stock_output: str) -> str | None:
-    """Find a product id in the stock listing with at least one unit free.
+def pick_available_product(catalog_output: str) -> str | None:
+    """Find a product that can be ordered right now.
 
     The tools return the service's JSON rendered with str(), so this reads it back the same way.
     It is deliberately forgiving: a shape it does not recognise means "skip the write tests", not
     a failure of the write path itself.
     """
     try:
-        payload = ast.literal_eval(stock_output)
+        rows = ast.literal_eval(catalog_output)
     except (ValueError, SyntaxError):
         return None
-    # Inventory pages its listings, so the rows arrive under "content".
-    rows = payload.get("content", []) if isinstance(payload, dict) else payload
     if not isinstance(rows, list):
         return None
     for row in rows:
         if not isinstance(row, dict):
             continue
-        # What can be ordered is what is on hand less what other orders already hold.
-        available = row.get("onHand", 0) - row.get("reserved", 0)
-        product = row.get("productId")
-        if product and available >= 1:
-            return str(product)
+        # `orderable` is already "in the catalogue, still sold, and some of it free", which is the
+        # whole question - but the availability is checked too, so that asking for one unit is
+        # something the row actually claims to support.
+        if row.get("orderable") and row.get("available", 0) >= 1 and row.get("product_id"):
+            return str(row["product_id"])
     return None
 
 
@@ -146,7 +150,14 @@ def extract_order_id(output: str) -> str | None:
 async def main() -> int:
     include_writes = "--write" in sys.argv
 
-    server_params = StdioServerParameters(command=sys.executable, args=["server.py"])
+    # The environment is forwarded explicitly: stdio_client passes the child a scrubbed one by
+    # default, keeping little more than PATH, so GATEWAY_URL and the credentials would not reach
+    # the server this launches. That is invisible on a host where the defaults are already right
+    # and total where they are not - inside the compose network the scrubbed child looks for the
+    # gateway on localhost and every test fails at once, against a system that is working.
+    server_params = StdioServerParameters(
+        command=sys.executable, args=["server.py"], env=dict(os.environ)
+    )
 
     async with stdio_client(server_params) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:

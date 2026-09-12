@@ -7,8 +7,10 @@ import java.util.UUID
 /**
  * The identifiers of this bounded context.
  *
- * Each carries a human-readable prefix, so a row in `domain_event_entry`, a Kafka key or a log
- * line says what kind of thing it points at without a join: "Order:9f1c...", not "9f1c...".
+ * Each one this context mints carries a human-readable prefix, so a row in `domain_event_entry`, a
+ * Kafka key or a log line says what kind of thing it points at without a join: "Order:9f1c...",
+ * not "9f1c...". [ProductId] is the exception and holds a bare uuid, because the product is
+ * inventory's and so is the id; see the note on it.
  *
  * Every one of them needs three things to survive the round trip through the infrastructure:
  * a no-arg form (JPA instantiates an @Embeddable reflectively, and Axon's Jackson serializer
@@ -81,7 +83,19 @@ data class TransactionId(@get:JsonValue override val value: String = "") : Ident
  */
 data class ProductId(@get:JsonValue override val value: String = "") : Identifier<String> {
 
-    override fun toString(): String = "Product:$value"
+    /**
+     * The bare id, unlike the identifiers above.
+     *
+     * They carry their prefix inside [value], so printing one and sending one are the same string.
+     * A product id is not this context's to mint - it is inventory's own uuid, arriving on requests
+     * and going back out on them unchanged - so a "Product:" added here existed only in printed
+     * form. That reached callers: the exceptions in `OrderExceptions` interpolate this, so a
+     * refused order came back saying "Insufficient stock for product Product:1562...", and a
+     * caller that did the obvious thing and retried with the id it had just been given got
+     * "Product with id Product:Product:1562... does not exist in inventory". An identifier prints
+     * as what it is on the wire.
+     */
+    override fun toString(): String = value
 
     companion object {
         @JvmStatic

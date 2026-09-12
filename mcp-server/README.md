@@ -14,12 +14,19 @@ orders are blocked on stock?") has nowhere to live when the tools are split by s
 
 | Tool | Description |
 |---|---|
+| `catalog` | The catalogue joined to its stock: what exists, and how much of it can be ordered |
 | `list_products` | List all products, optionally filtered by status |
 | `get_product` | Get a product by its UUID |
 | `list_stock` | List all stock items |
 | `get_stock` | Get the stock record for a specific product |
 | `low_stock_alerts` | List items below their reorder threshold |
 | `stock_summary` | Aggregate statistics (total products, on-hand, reserved) |
+
+`catalog` is the one to reach for before ordering. `list_products` and `list_stock` are inventory's
+own two resources and neither answers "what can I order" alone - the catalogue carries no
+quantities, the stock ledger carries no names or status, and a product whose stock is entirely
+reserved for other orders reads as perfectly orderable in the first and as fully stocked in the
+second. `catalog` joins them and says `available` and `orderable` outright.
 
 **Orders (read):**
 

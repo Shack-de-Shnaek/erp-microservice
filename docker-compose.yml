@@ -40,8 +40,16 @@ services:
       KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092'
       KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      # Under a mounted volume rather than /tmp inside the container, so the log survives the
+      # container being recreated as well as restarted. Postgres already persists, and a broker
+      # that did not meant the two stores had different lifetimes: `docker compose down` kept every
+      # order row and threw away the messages about them, or - the way round that actually bit -
+      # kept a day-old backlog while the orders it referred to were gone, and replaying it asked
+      # this system about orders that no longer existed.
+      KAFKA_LOG_DIRS: '/var/lib/kafka/data/kraft-combined-logs'
       CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    volumes:
+      - kafka_data:/var/lib/kafka/data
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 9092 || exit 1"]
       interval: 5s
@@ -262,3 +270,4 @@ networks:
 
 volumes:
   postgres_data:
+  kafka_data:

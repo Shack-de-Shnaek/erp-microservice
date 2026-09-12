@@ -7,6 +7,7 @@ import finki.ukim.erp.orders.exceptions.InvalidOrderStateException
 import finki.ukim.erp.orders.infrastructure.kafka.StockReleaseReason
 import finki.ukim.erp.orders.infrastructure.kafka.StockWithdrawnFromOrder
 import org.axonframework.commandhandling.gateway.CommandGateway
+import org.axonframework.modelling.command.AggregateNotFoundException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -37,7 +38,12 @@ class StockLifecycleEventHandler(
 
     /** Confirmed stock approves the order. Idempotent on the aggregate, so redelivery is harmless. */
     fun onStockConfirmed(orderId: OrderId) {
-        commandGateway.sendAndWait<Any>(ApproveOrderForConfirmedStockCommand(orderId))
+        try {
+            commandGateway.sendAndWait<Any>(ApproveOrderForConfirmedStockCommand(orderId))
+        } catch (unknown: AggregateNotFoundException) {
+            logUnknownOrder(orderId, "confirmed")
+            return
+        }
         logger.info("Stock confirmed for order {}", orderId)
     }
 
@@ -72,6 +78,9 @@ class StockLifecycleEventHandler(
             commandGateway.sendAndWait<Any>(
                 RejectOrderForWithdrawnStockCommand(withdrawal.orderId, withdrawal.detail)
             )
+        } catch (unknown: AggregateNotFoundException) {
+            logUnknownOrder(withdrawal.orderId, "withdrawn")
+            return
         } catch (refusal: InvalidOrderStateException) {
             // The paid-order case, most likely. Deliberately not retried and deliberately not
             // swallowed quietly: the order and the stock now disagree, no rule here can put that
@@ -86,5 +95,33 @@ class StockLifecycleEventHandler(
             return
         }
         logger.info("Order {} rejected: {}", withdrawal.orderId, withdrawal.detail)
+    }
+
+    /**
+     * An event about an order this service has never heard of.
+     *
+     * Distinct from redelivery, which the aggregate absorbs by itself, and the distinction is that
+     * this one can never come good: an order id that names no order will not start naming one
+     * later, so there is nothing to retry and nothing to wait for. Left to escape, it would reach
+     * [finki.ukim.erp.orders.infrastructure.kafka.KafkaEventConsumer]'s catch-all and be logged as
+     * a failure with a stack trace, which reads as a service in trouble rather than as a message
+     * that was never ours.
+     *
+     * Two things produce one. A reservation can outlive the order it was taken for - the hold is
+     * placed before the order exists, and if creating the order fails and giving the hold back
+     * fails too, inventory keeps a reservation under an id nothing will ever answer to. Or the two
+     * services' stores can simply diverge: Kafka retains a message for longer than the order row
+     * it refers to survives, and a replayed backlog then asks about orders that are gone.
+     *
+     * WARN, not ERROR: worth seeing, because a steady stream of these means the reservations and
+     * the orders have drifted apart, but no single one of them is a fault to be fixed.
+     */
+    private fun logUnknownOrder(orderId: OrderId, movement: String) {
+        logger.warn(
+            "Inventory reports stock {} for order {}, which does not exist in this service. " +
+                "Nothing to do: an unknown order cannot be acted on and will not appear later.",
+            movement,
+            orderId
+        )
     }
 }

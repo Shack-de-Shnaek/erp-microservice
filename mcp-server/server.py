@@ -56,13 +56,14 @@ configured with a URL while this runs on stdio will happily connect to whatever 
 - the gateway on 8088, Keycloak on 8080 - and report their 404 or 415 as an MCP error.
 """
 
+import json
 import os
 import time
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
 import httpx
 from mcp.server.fastmcp import FastMCP
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 # The gateway, not a service: these paths are the public ones from RoutesConfig.
 GATEWAY_URL = os.environ.get("GATEWAY_URL", "http://localhost:8088")
@@ -195,14 +196,22 @@ def _describe(resp: httpx.Response) -> str:
     return f"Error: HTTP {resp.status_code}. {detail}"
 
 
-async def _run(method: str, path: str, json_body: Any = None) -> str:
-    """The body every tool shares: make the call, render whatever comes back as text.
+async def _render(action: Any) -> str:
+    """The body every tool shares: do the work, render whatever comes back as text.
+
+    Takes the work as a coroutine function rather than a method and path, so that the tools which
+    make *several* calls and assemble an answer - `catalog` - report their failures in exactly the
+    words the single-call tools do, instead of growing a second vocabulary for the same problems.
 
     ConnectError is separated out because it is the one failure that is never about the request -
     it means nothing is listening at GATEWAY_URL, and saying which URL was tried is the whole fix.
     """
     try:
-        return str(await _call(method, path, json_body))
+        return str(await action())
+    except ToolInputError as e:
+        # The arguments never left this process. Naming what was wrong with them is the whole of
+        # the answer, and "Error:" is what the smoke test and the models both read as a failure.
+        return f"Error: {e}"
     except ErpError as e:
         return str(e)
     except httpx.ConnectError:
@@ -212,6 +221,33 @@ async def _run(method: str, path: str, json_body: Any = None) -> str:
         return f"Error: Could not obtain a token from Keycloak: HTTP {e.response.status_code}"
     except httpx.HTTPError as e:
         return f"Error: {type(e).__name__}: {e}"
+
+
+async def _run(method: str, path: str, json_body: Any = None) -> str:
+    """One call, rendered. What almost every tool below is."""
+    return await _render(lambda: _call(method, path, json_body))
+
+
+async def _collect(path: str, page_size: int = 200) -> list[dict]:
+    """Every row behind a paged endpoint, following the pages to the end.
+
+    Inventory serves its listings as Spring pages, which default to 20 rows. A tool that read only
+    the first page would answer "this is the catalogue" with a fifth of it, and be wrong in the
+    way that is hardest to notice - the answer looks complete. The page size is large because
+    these are small listings and one request beats five; the loop is there for when they are not.
+    """
+    rows: list[dict] = []
+    page = 0
+    while True:
+        sep = "&" if "?" in path else "?"
+        body = await _call("GET", f"{path}{sep}page={page}&size={page_size}")
+        # A listing that is not paged at all is a plain array; take it as the whole answer.
+        if not isinstance(body, dict):
+            return list(body or [])
+        rows.extend(body.get("content") or [])
+        if body.get("last", True) or not body.get("content"):
+            return rows
+        page += 1
 
 
 # ------------------------------------------------------------------------- inventory (read only)
@@ -266,6 +302,68 @@ async def stock_summary() -> str:
     return await _run("GET", "/api/inventory/stock/summary")
 
 
+@mcp.tool()
+async def catalog(only_orderable: bool = False) -> str:
+    """The catalogue and its stock in one answer: what exists, and how much of it can be ordered.
+
+    Prefer this over `list_products` and `list_stock` when the next step is to place or amend an
+    order. Those two are inventory's own resources and neither answers the question on its own:
+    the catalogue says what a product *is* but not how much there is, the stock ledger says
+    `on_hand` and `reserved` but not what the product is called. Deciding what can be ordered from
+    them means joining the two by product id and subtracting - and a line that is on the shelf but
+    entirely reserved for other orders reads, in the catalogue alone, as perfectly orderable. It
+    is not, and `create_order` refuses it.
+
+    Each row carries `available` (on hand minus what other orders are already holding, which is
+    the number `create_order` is judged against, never `on_hand`) and `orderable`, which is that
+    number being positive *and* the product still being sold. `product_id` is the id to pass to
+    `create_order`.
+
+    Args:
+        only_orderable: Leave out everything that cannot be ordered right now - withdrawn products
+            and ones whose stock is all spoken for. Use it to answer "what can I order"; leave it
+            false to see the whole catalogue with the reason each line is or is not available.
+    """
+
+    async def build() -> list[dict]:
+        products = await _collect("/api/inventory/products")
+        stock = {
+            row.get("productId"): row for row in await _collect("/api/inventory/stock")
+        }
+
+        rows = []
+        for product in products:
+            product_id = product.get("productId")
+            # A product with no stock row is not an error: it is in the catalogue and simply has
+            # nothing on the shelf, which is an availability of zero rather than a missing answer.
+            held = stock.get(product_id) or {}
+            on_hand = held.get("onHand", 0)
+            reserved = held.get("reserved", 0)
+            available = max(on_hand - reserved, 0)
+            # Anything other than INACTIVE is read as still for sale, so a status inventory has
+            # not told us about cannot start silently hiding products from the catalogue.
+            active = not str(product.get("status") or "").upper() == "INACTIVE"
+            rows.append(
+                {
+                    "product_id": product_id,
+                    "name": product.get("name"),
+                    "sku": product.get("sku"),
+                    "unit_of_measure": product.get("unitOfMeasure"),
+                    "status": product.get("status"),
+                    "on_hand": on_hand,
+                    "reserved": reserved,
+                    "available": available,
+                    "orderable": active and available > 0,
+                }
+            )
+
+        if only_orderable:
+            return [row for row in rows if row["orderable"]]
+        return rows
+
+    return await _render(build)
+
+
 # ----------------------------------------------------------------------------- orders (read only)
 
 
@@ -318,55 +416,227 @@ async def get_invoice(invoice_id: str) -> str:
 # --------------------------------------------------------------------------------- orders (write)
 
 
-class OrderItem(BaseModel):
-    """One line of an order. `product_id` is an inventory product UUID, not a stock id."""
+# Order and invoice lines arrive as plain objects rather than as declared models, and are read by
+# the two functions below rather than by pydantic. That is a deliberate trade, made after the
+# declared version turned out to be the thing standing between a model and a placed order.
+#
+# A `list[OrderItem]` parameter generates a schema that refers to the line's shape through
+# `$defs`/`$ref`, and requires the property `product_id`. Two things went wrong with that. The
+# strict clients - LM Studio among them - validate the model's arguments against that schema before
+# sending anything, so a wrong key is not a failed call this server can answer helpfully: it is
+# `Failed to parse arguments for tool "create_order": params.items.0 requires property
+# "product_id"`, and the model is left guessing at a shape it cannot see. And the key it guesses
+# wrong is not arbitrary - every response it has read from this system spells the field
+# `productId`, because that is what the ERP API returns, so copying what it just saw is precisely
+# what breaks. The weaker clients also flatten or drop `$defs` entirely, which leaves the line's
+# fields undescribed at exactly the moment they matter.
+#
+# So the lines are declared as `Any` and the shape is stated in the parameter description, where
+# every model reads it and no client can reject it. Declaring `list[dict]` instead would be the
+# tidier-looking contract and was tried first, but it puts pydantic in front of the reader below:
+# a single line sent unwrapped, or the `{"items": [...]}` of the API's own request body, is refused
+# by the signature before anything here can accept it or explain it, and both are ordinary things
+# for a model to send. What is lost is per-field validation by pydantic; what replaces it is
+# stricter in the way that counts, because it answers in words a model can act on rather than in a
+# parse failure it never sees.
 
-    product_id: str = Field(description="Inventory product UUID.")
-    quantity: int = Field(ge=1, description="How many units, at least 1.")
+_LINES_DESCRIPTION = (
+    "The order lines, as a JSON array of objects: "
+    '[{"product_id": "<product uuid>", "quantity": 2}]. '
+    "`productId` is accepted for the id and `qty` for the quantity, since that is how the rest of "
+    "the API spells them. The id is the bare uuid `catalog` reports, with no 'Product:' prefix."
+)
+
+_INVOICE_LINES_DESCRIPTION = (
+    "The invoice lines, as a JSON array of objects: "
+    '[{"inventory_item_id": "<product uuid>", "quantity": 2, "price": 9.99}]. '
+    "`inventoryItemId` and `product_id` are accepted for the id. Unlike an order line each one "
+    "carries its own price, because an invoice is a snapshot and correcting one must not reprice "
+    "it against what inventory charges today."
+)
 
 
-class InvoiceLineItem(BaseModel):
-    """One line of an invoice. Unlike an order line it carries its own price, because an invoice is
-    a snapshot: correcting one must not reprice it against what inventory charges today."""
+class ToolInputError(Exception):
+    """Arguments this server could not read, phrased so the next attempt is a better one.
 
-    inventory_item_id: str = Field(description="Inventory product UUID.")
-    quantity: int = Field(ge=1, description="How many units, at least 1.")
-    price: float = Field(ge=0, description="Unit price on the invoice.")
-
-
-def _order_items(items: list[OrderItem]) -> list[dict]:
-    # The API is camelCase; the tool schema is snake_case, because that is what reads naturally as
-    # a tool argument. The translation lives here so no tool has to remember it.
-    return [{"productId": i.product_id, "quantity": i.quantity} for i in items]
+    Separate from [ErpError]: nothing was sent anywhere, and the caller is the one that can fix it.
+    It is rendered the same way, as text rather than as a raised exception, because a model that
+    sees "Error: ..." reads it and tries again, where an exception is a dead end.
+    """
 
 
-def _invoice_items(items: list[InvoiceLineItem]) -> list[dict]:
+def _key(name: Any) -> str:
+    """A field name with the spelling filed off, so `product_id`, `productId` and `ProductID` are
+    one key. The tolerance is deliberately this narrow: it forgives how a name is written, never
+    which name was used."""
+    return str(name).replace("_", "").replace("-", "").replace(" ", "").lower()
+
+
+_ORDER_LINE_EXAMPLE = '{"product_id": "<product uuid>", "quantity": 2}'
+_INVOICE_LINE_EXAMPLE = '{"inventory_item_id": "<product uuid>", "quantity": 2, "price": 9.99}'
+
+
+class _Line:
+    """One line as it arrived, readable by any spelling of its field names.
+
+    It carries what it needs to complain about itself - which argument it came from, its position
+    in it, and what a good line looks like - so that the readers below take a line and nothing
+    else, and every message about a bad one is phrased the same way.
+
+    [given] is kept because those messages are the point: telling a model that a line "has
+    ['productid']" when it wrote `productId` sends it looking for a bug it did not write. What it
+    sees quoted back is what it typed.
+    """
+
+    def __init__(self, raw: dict, index: int, what: str, example: str) -> None:
+        self.index = index
+        self.what = what
+        self.example = example
+        self.given = list(raw)
+        self._by_key = {_key(name): value for name, value in raw.items()}
+
+    def get(self, names: tuple[str, ...]) -> Any:
+        for name in names:
+            value = self._by_key.get(_key(name))
+            if value is not None and value != "":
+                return value
+        return None
+
+    def complain(self, problem: str) -> "ToolInputError":
+        return ToolInputError(f"{self.what}[{self.index}] {problem} A line looks like: {self.example}")
+
+
+def _rows(items: Any, what: str, example: str) -> list[_Line]:
+    """Whatever arrived, as a list of readable lines.
+
+    Three shapes beyond the expected one are taken, because they are what models actually send and
+    each has exactly one sensible reading: a JSON string (the arguments were serialized twice), a
+    single line that was not wrapped in an array, and `{"items": [...]}` (the request body copied
+    from the API documentation rather than the tool's own arguments).
+    """
+    if isinstance(items, str):
+        try:
+            items = json.loads(items)
+        except json.JSONDecodeError as e:
+            raise ToolInputError(f"{what} is not valid JSON: {e}. Expected [{example}]") from None
+
+    if isinstance(items, dict):
+        inner = items.get("items")
+        items = inner if isinstance(inner, list) else [items]
+
+    if not isinstance(items, list) or not items:
+        raise ToolInputError(f"{what} must be a non-empty array of line objects: [{example}]")
+
+    lines = []
+    for index, row in enumerate(items):
+        if not isinstance(row, dict):
+            raise ToolInputError(
+                f"{what}[{index}] must be an object, not {type(row).__name__}: {example}"
+            )
+        lines.append(_Line(row, index, what, example))
+    return lines
+
+
+def _field(line: _Line, names: tuple[str, ...]) -> Any:
+    value = line.get(names)
+    if value is None:
+        spelled = " or ".join(f"`{name}`" for name in names)
+        raise line.complain(f"has no {spelled} - it has {line.given}.")
+    return value
+
+
+def _product_id(line: _Line, names: tuple[str, ...]) -> str:
+    value = str(_field(line, names)).strip()
+    # The id the API takes is the bare uuid. A "Product:" in front of it is this system's own way
+    # of writing the id in prose, so a model that picked one up from somewhere meant the right
+    # product and wrote it the wrong way; that is worth accepting rather than refusing.
+    return value[len("Product:"):] if value.startswith("Product:") else value
+
+
+def _quantity(line: _Line) -> int:
+    value = _field(line, ("quantity", "qty", "amount", "count"))
+    # bool is an int in Python and `true` is not a quantity anyone meant.
+    if isinstance(value, bool):
+        raise line.complain(f"has a quantity of {value!r}, which is not a number.")
+    try:
+        quantity = int(str(value).strip())
+    except (TypeError, ValueError):
+        raise line.complain(f"has a quantity of {value!r}, which is not a whole number.") from None
+    if quantity < 1:
+        raise line.complain(f"has a quantity of {quantity}; it must be at least 1.")
+    return quantity
+
+
+def _price(line: _Line) -> float:
+    value = _field(line, ("price", "unit_price", "amount"))
+    try:
+        price = float(str(value).strip())
+    except (TypeError, ValueError):
+        raise line.complain(f"has a price of {value!r}, which is not a number.") from None
+    if price < 0:
+        raise line.complain(f"has a price of {price}; it cannot be negative.")
+    return price
+
+
+def _order_items(items: Any) -> list[dict]:
+    # The API is camelCase; the tool arguments read as snake_case, because that is what reads
+    # naturally as a tool argument. The translation lives here so no tool has to remember it.
+    names = ("product_id", "productId", "product", "id")
     return [
-        {"inventoryItemId": i.inventory_item_id, "quantity": i.quantity, "price": i.price}
-        for i in items
+        {"productId": _product_id(line, names), "quantity": _quantity(line)}
+        for line in _rows(items, "items", _ORDER_LINE_EXAMPLE)
+    ]
+
+
+def _invoice_items(items: Any) -> list[dict]:
+    names = ("inventory_item_id", "inventoryItemId", "product_id", "productId", "id")
+    return [
+        {
+            "inventoryItemId": _product_id(line, names),
+            "quantity": _quantity(line),
+            "price": _price(line),
+        }
+        for line in _rows(items, "items", _INVOICE_LINE_EXAMPLE)
     ]
 
 
 if ENABLE_WRITES:
 
     @mcp.tool()
-    async def create_order(name: str, surname: str, items: list[OrderItem]) -> str:
+    async def create_order(
+        name: str,
+        surname: str,
+        items: Annotated[Any, Field(description=_LINES_DESCRIPTION)],
+    ) -> str:
         """Place a new order.
 
         Every line is validated against inventory - the product must exist and have enough on hand
         - and the order is created PENDING, priced at what inventory quoted. The customer is taken
         from this server's token, not from `name`/`surname`, which are only the name on the order.
 
+        Check `catalog` first and order against its `available`, not its `on_hand`. A product can
+        sit on a full shelf and still be unorderable, because another order is already holding all
+        of it; the catalogue listing alone does not show that, and the whole order is refused if
+        any one line cannot be covered.
+
         Args:
             name: Customer's first name.
             surname: Customer's surname.
             items: The order lines.
         """
-        body = {"name": name, "surname": surname, "items": _order_items(items)}
-        return await _run("POST", "/api/orders", body)
+        return await _render(
+            lambda: _call(
+                "POST",
+                "/api/orders",
+                {"name": name, "surname": surname, "items": _order_items(items)},
+            )
+        )
 
     @mcp.tool()
-    async def update_order_items(order_id: str, items: list[OrderItem]) -> str:
+    async def update_order_items(
+        order_id: str,
+        items: Annotated[Any, Field(description=_LINES_DESCRIPTION)],
+    ) -> str:
         """Replace an order's lines wholesale and reprice them against inventory.
 
         Allowed while the order is pending or approved, and only until an invoice has been issued
@@ -376,7 +646,11 @@ if ENABLE_WRITES:
             order_id: The order id, e.g. "Order:9f1c...".
             items: The complete new set of lines.
         """
-        return await _run("PUT", f"/api/orders/{order_id}/items", {"items": _order_items(items)})
+        return await _render(
+            lambda: _call(
+                "PUT", f"/api/orders/{order_id}/items", {"items": _order_items(items)}
+            )
+        )
 
     @mcp.tool()
     async def approve_order(order_id: str) -> str:
@@ -443,7 +717,10 @@ if ENABLE_WRITES:
         return await _run("POST", f"/api/orders/{order_id}/invoice", {"embg": embg})
 
     @mcp.tool()
-    async def update_invoice_line_items(invoice_id: str, items: list[InvoiceLineItem]) -> str:
+    async def update_invoice_line_items(
+        invoice_id: str,
+        items: Annotated[Any, Field(description=_INVOICE_LINES_DESCRIPTION)],
+    ) -> str:
         """Correct an issued invoice's lines - a billing correction, not an amendment of the order.
 
         The order's own items are untouched. A reversed invoice can no longer be modified.
@@ -452,8 +729,12 @@ if ENABLE_WRITES:
             invoice_id: The invoice id, e.g. "Invoice:3ab2...".
             items: The complete new set of invoice lines, each with its price.
         """
-        return await _run(
-            "PUT", f"/api/orders/invoices/{invoice_id}/line-items", {"items": _invoice_items(items)}
+        return await _render(
+            lambda: _call(
+                "PUT",
+                f"/api/orders/invoices/{invoice_id}/line-items",
+                {"items": _invoice_items(items)},
+            )
         )
 
     @mcp.tool()

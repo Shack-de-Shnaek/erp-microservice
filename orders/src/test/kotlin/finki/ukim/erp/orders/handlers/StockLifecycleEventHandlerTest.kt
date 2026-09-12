@@ -7,6 +7,7 @@ import finki.ukim.erp.orders.exceptions.InvalidOrderStateException
 import finki.ukim.erp.orders.infrastructure.kafka.StockReleaseReason
 import finki.ukim.erp.orders.infrastructure.kafka.StockWithdrawnFromOrder
 import org.axonframework.commandhandling.gateway.CommandGateway
+import org.axonframework.modelling.command.AggregateNotFoundException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -90,5 +91,28 @@ class StockLifecycleEventHandlerTest {
 
         handler.onStockWithdrawn(withdrawal(StockReleaseReason.WITHDRAWN_BY_INVENTORY))
         // Reaching here at all is the assertion: nothing was thrown.
+    }
+
+    /**
+     * An event about an order that does not exist here, which is not the same as one that cannot
+     * be acted on: there is no order to refuse, and none will appear later. Inventory can keep a
+     * reservation under an id nothing answers to - the hold is placed before the order exists - and
+     * a replayed Kafka backlog can ask about orders whose rows are long gone. Neither is a fault of
+     * this service's, and neither is worth a stack trace, so both stop here.
+     */
+    @Test
+    fun `stock confirmed for an order this service does not have is dropped`() {
+        commandFailure = AggregateNotFoundException(orderId.value, "not found")
+
+        handler.onStockConfirmed(orderId)
+        // Reaching here at all is the assertion: nothing was thrown, and nothing is retried.
+    }
+
+    @Test
+    fun `stock withdrawn for an order this service does not have is dropped`() {
+        commandFailure = AggregateNotFoundException(orderId.value, "not found")
+
+        handler.onStockWithdrawn(withdrawal(StockReleaseReason.WITHDRAWN_BY_INVENTORY))
+        // Reaching here at all is the assertion: nothing was thrown, and nothing is retried.
     }
 }
