@@ -1,213 +1,1013 @@
-<mxfile host="app.diagrams.net" agent="claude-code" version="24.0.0">
-  <diagram id="erp-architecture" name="ERP Architecture">
-    <mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1400" math="0" shadow="0">
+<mxfile host="app.diagrams.net" agent="claude-code" pages="4">
+  <diagram id="p1-contexts" name="1 · Bounded contexts &amp; context map">
+    <mxGraphModel dx="2537" dy="1513" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1560" math="0" shadow="0">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-
-        <!-- ============ TITLE ============ -->
-        <mxCell id="title" value="ERP Microservice System &#8212; Architecture" style="text;html=1;align=left;verticalAlign=middle;fontSize=24;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="60" y="-10" width="700" height="40" as="geometry"/>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-169" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=24;fontStyle=1;" value="ERP Microservice System — Architecture" vertex="1">
+          <mxGeometry height="40" width="700" x="1424" y="697.199951171875" as="geometry" />
         </mxCell>
-        <mxCell id="subtitle" value="Spring Boot / Kotlin &#183; Axon CQRS + Event Sourcing &#183; Kafka &#183; Keycloak &#183; Consul &#183; Docker Compose" style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontColor=#666666;" vertex="1" parent="1">
-          <mxGeometry x="60" y="26" width="900" height="20" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-170" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontColor=#666666;" value="Spring Boot / Kotlin · Axon CQRS + Event Sourcing · Kafka · Keycloak · Consul · Docker Compose" vertex="1">
+          <mxGeometry height="20" width="900" x="1424" y="733.199951171875" as="geometry" />
         </mxCell>
-
-        <!-- ============ CLIENT LAYER ============ -->
-        <mxCell id="grpClients" value="Client applications" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=none;strokeColor=#6c8ebf;verticalAlign=top;align=left;spacingLeft=10;fontStyle=2;fontColor=#6c8ebf;" vertex="1" parent="1">
-          <mxGeometry x="60" y="60" width="1480" height="150" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-171" parent="1" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=none;strokeColor=#6c8ebf;verticalAlign=top;align=left;spacingLeft=10;fontStyle=2;fontColor=#6c8ebf;" value="Client applications" vertex="1">
+          <mxGeometry height="150" width="1480" x="1424" y="767.199951171875" as="geometry" />
         </mxCell>
-        <mxCell id="browser" value="&lt;b&gt;Web browser&lt;/b&gt;&lt;br&gt;Swagger UI served by the gateway&lt;br&gt;(both services in one dropdown)&lt;br&gt;OAuth2 login &#8594; Keycloak" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="110" y="95" width="230" height="90" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-172" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;verticalAlign=middle;" value="&lt;b&gt;Web browser&lt;/b&gt;&lt;br&gt;Swagger UI served by the gateway&lt;br&gt;(both services in one dropdown)&lt;br&gt;OAuth2 login → Keycloak" vertex="1">
+          <mxGeometry height="90" width="230" x="1474" y="802.199951171875" as="geometry" />
         </mxCell>
-        <mxCell id="curl" value="&lt;b&gt;curl / test-scripts&lt;/b&gt;&lt;br&gt;REST + Bearer token&lt;br&gt;(no SPA in this repo)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="390" y="95" width="200" height="90" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-173" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;verticalAlign=middle;" value="&lt;b&gt;curl / test-scripts&lt;/b&gt;&lt;br&gt;REST + Bearer token&lt;br&gt;(no SPA in this repo)" vertex="1">
+          <mxGeometry height="90" width="200" x="1754" y="802.199951171875" as="geometry" />
         </mxCell>
-        <mxCell id="mcpcli" value="&lt;b&gt;MCP client (LLM host)&lt;/b&gt;&lt;br&gt;Claude Desktop &#183; LM Studio &#183; opencode&lt;br&gt;terminal client" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="1230" y="95" width="260" height="90" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-174" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=8;verticalAlign=middle;" value="&lt;b&gt;MCP client (LLM host)&lt;/b&gt;&lt;br&gt;Claude Desktop · LM Studio · opencode&lt;br&gt;terminal client" vertex="1">
+          <mxGeometry height="90" width="260" x="2594" y="802.199951171875" as="geometry" />
         </mxCell>
-
-        <!-- ============ MCP SERVER ============ -->
-        <mxCell id="mcpsrv" value="&lt;b&gt;MCP Server&lt;/b&gt;&#160;:8765&lt;br&gt;Python &#183; FastMCP&lt;br&gt;stdio (default) or streamable-HTTP /mcp&lt;br&gt;7 inventory read tools, 5 order read tools,&lt;br&gt;9 write tools (ERP_ENABLE_WRITES)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="1200" y="230" width="330" height="110" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-175" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=8;verticalAlign=middle;" value="&lt;b&gt;MCP Server&lt;/b&gt; :8765&lt;br&gt;Python · FastMCP&lt;br&gt;stdio (default) or streamable-HTTP /mcp&lt;br&gt;7 inventory read tools, 5 order read tools,&lt;br&gt;9 write tools (ERP_ENABLE_WRITES)" vertex="1">
+          <mxGeometry height="110" width="330" x="2564" y="937.199951171875" as="geometry" />
         </mxCell>
-
-        <!-- ============ API GATEWAY ============ -->
-        <mxCell id="gateway" value="&lt;b&gt;API Gateway&lt;/b&gt;&#160;:8088&#160;&#160;(Spring Cloud Gateway, WebFlux)&lt;br&gt;&#8226; oauth2Login (browser) + JWT resource server (API) + TokenRelay filter&lt;br&gt;&#8226; /api/inventory/** &#8594; lb://inventory /api/**&#160;&#160;&#160;&#8226; /api/orders/** &#8594; lb://orders /orders/**, /invoices/**&lt;br&gt;&#8226; /docs/&amp;lt;service&amp;gt;/** &#8594; proxied OpenAPI + AsyncAPI documents&#160;&#160;&#8226; serves the aggregated Swagger UI" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=10;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="340" y="300" width="700" height="120" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-176" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=10;verticalAlign=middle;" value="&lt;b&gt;API Gateway&lt;/b&gt; :8088  (Spring Cloud Gateway, WebFlux)&lt;br&gt;• oauth2Login (browser) + JWT resource server (API) + TokenRelay filter&lt;br&gt;• /api/inventory/** → lb://inventory /api/**   • /api/orders/** → lb://orders /orders/**, /invoices/**&lt;br&gt;• /docs/&amp;lt;service&amp;gt;/** → proxied OpenAPI + AsyncAPI documents  • serves the aggregated Swagger UI" vertex="1">
+          <mxGeometry height="120" width="700" x="1704" y="1007.199951171875" as="geometry" />
         </mxCell>
-
-        <!-- ============ CONSUL ============ -->
-        <mxCell id="consul" value="&lt;b&gt;Consul&lt;/b&gt;&#160;:8500&lt;br&gt;Service registry&lt;br&gt;+ health checks&lt;br&gt;(lb:// resolution,&lt;br&gt;Feign load balancing)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="60" y="560" width="190" height="150" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-177" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=8;verticalAlign=middle;" value="&lt;b&gt;Consul&lt;/b&gt; :8500&lt;br&gt;Service registry&lt;br&gt;+ health checks&lt;br&gt;(lb:// resolution,&lt;br&gt;Feign load balancing)" vertex="1">
+          <mxGeometry height="150" width="190" x="1424" y="1267.199951171875" as="geometry" />
         </mxCell>
-
-        <!-- ============ MICROSERVICES ============ -->
-        <mxCell id="orders" value="&lt;b&gt;Order Service&lt;/b&gt;&#160;:8089&#160;&#160;(`orders`)&lt;br&gt;Spring Boot &#183; Kotlin &#183; Axon 4.13&lt;br&gt;&#8226; Aggregate: Order (create, amend, approve,&lt;br&gt;&#160;&#160; reject, cancel, payments, invoice, reversal)&lt;br&gt;&#8226; CQRS: commands &#8594; event store, JPA read model&lt;br&gt;&#8226; OpenFeign + Resilience4j &#8594; inventory&lt;br&gt;&#8226; springdoc OpenAPI + springwolf AsyncAPI" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="330" y="520" width="350" height="190" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-178" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;spacingLeft=8;verticalAlign=middle;" value="&lt;b&gt;Order Service&lt;/b&gt; :8089  (`orders`)&lt;br&gt;Spring Boot · Kotlin · Axon&lt;br&gt;• Aggregate: Order (create, amend, approve,&lt;br&gt;   reject, cancel, payments, invoice, reversal)&lt;br&gt;• CQRS: commands → event store, JPA read model&lt;br&gt;• OpenFeign + Resilience4j → inventory&lt;br&gt;• springdoc OpenAPI + springwolf AsyncAPI" vertex="1">
+          <mxGeometry height="190" width="350" x="1694" y="1227.199951171875" as="geometry" />
         </mxCell>
-        <mxCell id="inventory" value="&lt;b&gt;Inventory Service&lt;/b&gt;&#160;:8081&#160;&#160;(`inventory`)&lt;br&gt;Spring Boot &#183; Kotlin &#183; Axon 4.10&lt;br&gt;&#8226; Aggregates: Product, StockItem&lt;br&gt;&#8226; Reservations: hold / amend / release / confirm&lt;br&gt;&#8226; OrderLifecycleSaga, ActiveProductReservationPolicy&lt;br&gt;&#8226; Read models: catalogue, stock, low-stock, summary&lt;br&gt;&#8226; springdoc OpenAPI + springwolf AsyncAPI" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="750" y="520" width="350" height="190" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-179" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;spacingLeft=8;verticalAlign=middle;" value="&lt;b&gt;Inventory Service&lt;/b&gt; :8081  (`inventory`)&lt;br&gt;Spring Boot · Kotlin · Axon&lt;br&gt;• Aggregates: Product, StockItem&lt;br&gt;• Reservations: hold / amend / release / confirm&lt;br&gt;• OrderLifecycleSaga, ActiveProductReservationPolicy&lt;br&gt;• Read models: catalogue, stock, low-stock, summary&lt;br&gt;• springdoc OpenAPI + springwolf AsyncAPI" vertex="1">
+          <mxGeometry height="190" width="350" x="2114" y="1227.199951171875" as="geometry" />
         </mxCell>
-
-        <!-- ============ KEYCLOAK ============ -->
-        <mxCell id="keycloak" value="&lt;b&gt;Keycloak 24&lt;/b&gt;&#160;:8080&lt;br&gt;&lt;i&gt;Identity provider (external integration)&lt;/i&gt;&lt;br&gt;Realm &lt;b&gt;erp&lt;/b&gt; &#8212; OIDC / JWT, JWKS&lt;br&gt;&#8226; erp-gateway &#8212; authorization code (browser)&lt;br&gt;&#8226; erp-orders &#8212; client credentials (SERVICE)&lt;br&gt;&#8226; erp-mcp &#8212; client credentials (ADMIN+CUSTOMER)&lt;br&gt;Roles: ADMIN &#183; CUSTOMER &#183; SERVICE" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="1200" y="520" width="330" height="190" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-180" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=8;verticalAlign=middle;" value="&lt;b&gt;Keycloak&lt;/b&gt; :8080&lt;br&gt;&lt;i&gt;Identity provider (external integration)&lt;/i&gt;&lt;br&gt;Realm &lt;b&gt;erp&lt;/b&gt; — OIDC / JWT, JWKS&lt;br&gt;• erp-gateway — authorization code (browser)&lt;br&gt;• erp-orders — client credentials (SERVICE)&lt;br&gt;• erp-mcp — client credentials (ADMIN+CUSTOMER)&lt;br&gt;Roles: ADMIN · CUSTOMER · SERVICE" vertex="1">
+          <mxGeometry height="190" width="330" x="2620" y="1227.199951171875" as="geometry" />
         </mxCell>
-
-        <!-- ============ KAFKA ============ -->
-        <mxCell id="kafka" value="&lt;b&gt;Apache Kafka (KRaft)&lt;/b&gt;&#160;:9092&#160;&#8212;&#160;event broker&#160;&#160;(durable log on a named volume)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=top;align=center;spacingTop=6;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="330" y="800" width="770" height="200" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-181" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eef7ea;strokeColor=#82b366;align=left;spacingLeft=8;verticalAlign=middle;fontSize=10;dashed=1;" value="&lt;b&gt;orders ↔ Kafka&lt;/b&gt;  (`infrastructure.kafka`, the only package here that names Kafka)&lt;br&gt;&lt;b&gt;out ↓&lt;/b&gt; `EventMessagingEventHandler` on the Axon tracking processor `event-messaging` — one&lt;br&gt;    `@EventHandler(AbstractEvent)` asks every event `toExternalEvents()`; topic is derived from the&lt;br&gt;    class name (`OrderApprovedEvent` → `order.approved`), key = orderId&lt;br&gt;&lt;b&gt;in ↑&lt;/b&gt; `KafkaEventConsumer` `@KafkaListener` (group `orders-group`) → translator → handler → &lt;b&gt;CommandGateway&lt;/b&gt;:&lt;br&gt;   • `stock.confirmed` → &lt;b&gt;ApproveOrderForConfirmedStockCommand&lt;/b&gt;&lt;br&gt;   • `stock.reservation.released` / `stock.returned` → &lt;b&gt;RejectOrderForWithdrawnStockCommand&lt;/b&gt;&lt;br&gt;      (only when the reason is WITHDRAWN_BY_INVENTORY — a release we asked for is dropped)&lt;br&gt;   • `product.deactivated` → &lt;b&gt;RejectOrderCommand&lt;/b&gt; for every PENDING order holding that product" vertex="1">
+          <mxGeometry height="185" width="390" x="1664" y="1467.199951171875" as="geometry" />
         </mxCell>
-        <mxCell id="topicsOrders" value="&lt;b&gt;Published by orders&lt;/b&gt;&lt;br&gt;order.created&lt;br&gt;order.approved&lt;br&gt;order.cancelled&lt;br&gt;&lt;b&gt;order.nullified&lt;/b&gt; (CANCELLED/REJECTED/REFUNDED)&lt;br&gt;invoice.generated &#183; invoice.reversed" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;align=left;spacingLeft=8;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="355" y="855" width="340" height="125" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-182" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eef7ea;strokeColor=#82b366;align=left;spacingLeft=8;verticalAlign=middle;fontSize=10;dashed=1;" value="&lt;b&gt;inventory ↔ Kafka&lt;/b&gt;  (`infrastructure.kafka`)&lt;br&gt;&lt;b&gt;out ↓&lt;/b&gt; `EventMessagingEventHandler` asks every `AbstractEvent` `toExternalEvent()`; topic derived the&lt;br&gt;    same way (`StockConfirmedEvent` → `stock.confirmed`), key = productId / stockItemId&lt;br&gt;&lt;b&gt;in ↑&lt;/b&gt; `KafkaEventConsumer` `@KafkaListener` (group `inventory-group`) → `OrderEventTranslator` →&lt;br&gt;    `OrderLifecycleSaga` → &lt;b&gt;CommandGateway&lt;/b&gt;:&lt;br&gt;   • `order.nullified` → &lt;b&gt;ReleaseReservationCommand&lt;/b&gt;(reason ORDER_NULLIFIED), one per line&lt;br&gt;      actually held — the lines come from this service&#39;s reservation view, not from the message&lt;br&gt;&lt;i&gt;`order.created` / `order.approved` are deliberately not consumed: stock is taken by the&lt;br&gt;synchronous reservation call, so approval is now a consequence of &lt;b&gt;this&lt;/b&gt; service confirming.&lt;/i&gt;" vertex="1">
+          <mxGeometry height="185" width="390" x="2104" y="1467.199951171875" as="geometry" />
         </mxCell>
-        <mxCell id="topicsInv" value="&lt;b&gt;Published by inventory&lt;/b&gt;&lt;br&gt;product.created &#183; product.updated&lt;br&gt;product.deactivated &#183; product.reactivated&lt;br&gt;stock.reserved &#183; stock.confirmed &#183; stock.adjusted&lt;br&gt;stock.reservation.released &#183; stock.returned" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;align=left;spacingLeft=8;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="725" y="855" width="350" height="125" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-183" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=top;align=center;spacingTop=6;fontStyle=1;" value="&lt;b&gt;Apache Kafka (KRaft, single broker `broker`)&lt;/b&gt; :9092 — the asynchronous backbone  ·  1 partition / 1 replica per topic, `acks=all`, `auto-offset-reset=earliest`, durable log on a named volume&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;JSON payloads, String key/value serializers. Each message carries `_eventType` as its envelope. Topics a service &lt;i&gt;consumes&lt;/i&gt; are declared by `KafkaTopicsConfig` so a cold start does not wait out a metadata refresh; topics it &lt;i&gt;publishes&lt;/i&gt; are auto-created on first send.&lt;/font&gt;" vertex="1">
+          <mxGeometry height="457.8" width="870" x="1644" y="1692.2" as="geometry" />
         </mxCell>
-
-        <!-- ============ POSTGRES ============ -->
-        <mxCell id="postgres" value="&lt;b&gt;PostgreSQL 15&lt;/b&gt;&#160;:5432&#160;&#8212;&#160;one instance, three logical databases (persistent volume)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;verticalAlign=top;align=center;spacingTop=6;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="330" y="1090" width="770" height="160" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-184" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=4;fontSize=10;" value="&lt;b&gt;Published by orders&lt;/b&gt;  (key = orderId)&lt;br&gt;&lt;br&gt;&lt;b&gt;order.nullified&lt;/b&gt; — all three endings in one topic:&lt;br&gt;   CANCELLED · REJECTED · REFUNDED&lt;br&gt;order.created · order.approved · order.cancelled&lt;br&gt;invoice.generated · invoice.reversed" vertex="1">
+          <mxGeometry height="110" width="400" x="1669" y="1779.999951171875" as="geometry" />
         </mxCell>
-        <mxCell id="dbOrders" value="&lt;b&gt;orders&lt;/b&gt;&lt;br&gt;Axon JPA event store&lt;br&gt;+ order/invoice read model" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=12;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="360" y="1145" width="210" height="90" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-185" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=4;fontSize=10;" value="&lt;b&gt;Published by inventory&lt;/b&gt;  (key = productId / stockItemId)&lt;br&gt;&lt;br&gt;product.created · product.updated&lt;br&gt;product.deactivated · product.reactivated&lt;br&gt;stock.reserved · stock.reservation.amended · stock.adjusted&lt;br&gt;stock.reservation.released · stock.returned · stock.confirmed" vertex="1">
+          <mxGeometry height="110" width="400" x="2089" y="1779.999951171875" as="geometry" />
         </mxCell>
-        <mxCell id="dbKeycloak" value="&lt;b&gt;keycloak&lt;/b&gt;&lt;br&gt;realm, users,&lt;br&gt;clients, sessions" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=12;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="605" y="1145" width="210" height="90" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-186" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eef7ea;strokeColor=#82b366;align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=4;fontSize=10;" value="&lt;b&gt;Consumed by orders&lt;/b&gt;  (group `orders-group`)&lt;br&gt;&lt;br&gt;&lt;b&gt;stock.confirmed&lt;/b&gt; → approves the order&lt;br&gt;&lt;b&gt;stock.reservation.released&lt;/b&gt; · &lt;b&gt;stock.returned&lt;/b&gt; → may reject it&lt;br&gt;&lt;b&gt;product.deactivated&lt;/b&gt; → rejects every pending order&lt;br&gt;   holding that product&lt;br&gt;&lt;i&gt;Nothing else inventory publishes is read here.&lt;/i&gt;" vertex="1">
+          <mxGeometry height="120" width="400" x="1669" y="1904.999951171875" as="geometry" />
         </mxCell>
-        <mxCell id="dbInventory" value="&lt;b&gt;inventory&lt;/b&gt;&lt;br&gt;Axon JPA event store&lt;br&gt;+ product/stock read model" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=12;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="850" y="1145" width="220" height="90" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-187" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eef7ea;strokeColor=#82b366;align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=4;fontSize=10;" value="&lt;b&gt;Consumed by inventory&lt;/b&gt;  (group `inventory-group`)&lt;br&gt;&lt;br&gt;&lt;b&gt;order.nullified&lt;/b&gt; → releases the hold, one line at a time&lt;br&gt;&lt;br&gt;&lt;i&gt;order.created / order.approved are deliberately not read: stock is taken by the synchronous reservation call, so approval is this service&#39;s own doing coming back to it.&lt;/i&gt;" vertex="1">
+          <mxGeometry height="120" width="400" x="2089" y="1904.999951171875" as="geometry" />
         </mxCell>
-
-        <!-- ============ LEGEND ============ -->
-        <mxCell id="legend" value="&lt;b&gt;Legend&lt;/b&gt;&lt;br&gt;&lt;br&gt;&#8212;&#8212;&#8594;&#160;&#160;synchronous REST / JDBC&lt;br&gt;- - -&#8594;&#160;&#160;asynchronous Kafka event&lt;br&gt;&#183;&#183;&#183;&#183;&#183;&#8594;&#160;&#160;auth: token issue / JWKS&lt;br&gt;&lt;br&gt;All containers share the Docker&lt;br&gt;bridge network `app-network`." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="40" y="800" width="240" height="170" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-188" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;align=left;spacingLeft=8;verticalAlign=middle;fontSize=10;" value="&lt;b&gt;Events travel on Kafka; commands do not.&lt;/b&gt;  No topic carries a command, and no service dispatches a command into another service&#39;s aggregate. The one cross-service &lt;i&gt;command&lt;/i&gt; — taking stock for an order — goes &lt;b&gt;synchronously over REST&lt;/b&gt; (`POST /api/reservations`), because the customer is told &quot;order placed&quot; on the strength of the answer and that promise must not rest on a message still in flight. Giving stock back, and everything else, is &lt;b&gt;asynchronous&lt;/b&gt;: nobody waits on it and it must happen even if the other side cannot ask. A consumed event turns into a command only &lt;i&gt;inside&lt;/i&gt; the receiving service, on its own in-process Axon command bus — the green arrows above." vertex="1">
+          <mxGeometry height="75" width="820" x="1669" y="2039.999951171875" as="geometry" />
         </mxCell>
-
-        <!-- ============ EDGES: clients ============ -->
-        <mxCell id="e1" value="HTTPS / REST" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.1;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;" edge="1" parent="1" source="browser" target="gateway">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-189" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;verticalAlign=top;align=center;spacingTop=6;fontStyle=1;" value="&lt;b&gt;PostgreSQL&lt;/b&gt; :5432 — one instance, three logical databases (persistent volume)" vertex="1">
+          <mxGeometry height="160" width="770" x="1694" y="2319.999951171875" as="geometry" />
         </mxCell>
-        <mxCell id="e2" value="REST + Bearer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;" edge="1" parent="1" source="curl" target="gateway">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-190" parent="1" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=12;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;" value="&lt;b&gt;orders&lt;/b&gt;&lt;br&gt;Axon JPA event store&lt;br&gt;+ order/invoice read model&lt;br&gt;+ tracking-processor tokens" vertex="1">
+          <mxGeometry height="90" width="210" x="1724" y="2374.999951171875" as="geometry" />
         </mxCell>
-        <mxCell id="e3" value="MCP / JSON-RPC 2.0&#10;(stdio or streamable-HTTP)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#9673a6;" edge="1" parent="1" source="mcpcli" target="mcpsrv">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-191" parent="1" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=12;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;" value="&lt;b&gt;keycloak&lt;/b&gt;&lt;br&gt;realm, users,&lt;br&gt;clients, sessions" vertex="1">
+          <mxGeometry height="90" width="210" x="1969" y="2374.999951171875" as="geometry" />
         </mxCell>
-        <mxCell id="e4" value="REST + Bearer&#10;(every tool call goes through the gateway)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#9673a6;" edge="1" parent="1" source="mcpsrv" target="gateway">
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-192" parent="1" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=12;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;" value="&lt;b&gt;inventory&lt;/b&gt;&lt;br&gt;Axon JPA event store&lt;br&gt;+ product/stock read model&lt;br&gt;+ reservation view" vertex="1">
+          <mxGeometry height="90" width="220" x="2214" y="2374.999951171875" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-193" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;fontSize=11;" value="&lt;b&gt;Legend&lt;/b&gt;&lt;br&gt;&lt;br&gt;——→  synchronous REST / JDBC&lt;br&gt;①…⑥  the numbered orders → inventory&lt;br&gt;       calls, listed on the right&lt;br&gt;&lt;font color=&quot;#d6b656&quot;&gt;- - -→&lt;/font&gt;  asynchronous Kafka message&lt;br&gt;&lt;font color=&quot;#82b366&quot;&gt;——→&lt;/font&gt;  Axon command, in-process command bus&lt;br&gt;——→  domain event on the Axon event bus&lt;br&gt;&lt;font color=&quot;#d79b00&quot;&gt;- - -→&lt;/font&gt;  service discovery&lt;br&gt;·····→  auth: token issue / JWKS&lt;br&gt;&lt;br&gt;A command is always &lt;i&gt;within&lt;/i&gt; one service.&lt;br&gt;What crosses a service boundary is&lt;br&gt;either a Kafka event or a REST call.&lt;br&gt;&lt;br&gt;All containers share the Docker&lt;br&gt;bridge network `app-network`." vertex="1">
+          <mxGeometry height="260" width="220" x="1404" y="1692.199951171875" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-194" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-172" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.1;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;" target="Kex4wcxGBSkoDXFyb8dY-176" value="HTTPS / REST">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-195" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-173" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;" target="Kex4wcxGBSkoDXFyb8dY-176" value="REST + Bearer">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-196" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-174" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#9673a6;" target="Kex4wcxGBSkoDXFyb8dY-175" value="MCP / JSON-RPC 2.0&#xa;(stdio or streamable-HTTP)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-197" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-175" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#9673a6;" target="Kex4wcxGBSkoDXFyb8dY-176" value="REST + Bearer&#xa;(every tool call goes through the gateway)">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="1120" y="285"/>
-              <mxPoint x="1120" y="330"/>
+              <mxPoint x="2484" y="992.199951171875" />
+              <mxPoint x="2484" y="1037.199951171875" />
             </Array>
           </mxGeometry>
         </mxCell>
-
-        <!-- ============ EDGES: auth ============ -->
-        <mxCell id="e5" value="client_credentials (erp-mcp)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=0.85;exitY=1;exitDx=0;exitDy=0;entryX=0.85;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" edge="1" parent="1" source="mcpsrv" target="keycloak">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-198" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-175" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=0.85;exitY=1;exitDx=0;exitDy=0;entryX=0.85;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" target="Kex4wcxGBSkoDXFyb8dY-180" value="client_credentials (erp-mcp)">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e6" value="OIDC authorization code (login)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.2;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" edge="1" parent="1" source="browser" target="keycloak">
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-199" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-172" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.2;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" target="Kex4wcxGBSkoDXFyb8dY-180" value="OIDC authorization code (login)">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="1600" y="140"/>
-              <mxPoint x="1600" y="558"/>
+              <mxPoint x="2964" y="847.199951171875" />
+              <mxPoint x="2964" y="1265.199951171875" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e7" value="token exchange + JWKS" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" edge="1" parent="1" source="gateway" target="keycloak">
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-200" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-176" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" target="Kex4wcxGBSkoDXFyb8dY-180" value="token exchange + JWKS">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="1365" y="384"/>
+              <mxPoint x="2729" y="1091.199951171875" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e14" value="client_credentials (erp-orders)&#10;+ JWKS validation" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=0.9;exitY=0;exitDx=0;exitDy=0;entryX=0.12;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" edge="1" parent="1" source="orders" target="keycloak">
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-201" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-178" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=0.9;exitY=0;exitDx=0;exitDy=0;entryX=0.12;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" target="Kex4wcxGBSkoDXFyb8dY-180" value="client_credentials (erp-orders)&#xa;+ JWKS validation">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="645" y="470"/>
-              <mxPoint x="1240" y="470"/>
+              <mxPoint x="2009" y="1177.199951171875" />
+              <mxPoint x="2604" y="1177.199951171875" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e15" value="JWKS (validate JWT)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" edge="1" parent="1" source="inventory" target="keycloak">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-202" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-179" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" target="Kex4wcxGBSkoDXFyb8dY-180" value="JWKS (validate JWT)">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- ============ EDGES: gateway -> services ============ -->
-        <mxCell id="e8" value="TokenRelay&#10;lb://orders" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;" edge="1" parent="1" source="gateway" target="orders">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-203" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-176" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;" target="Kex4wcxGBSkoDXFyb8dY-178" value="TokenRelay&#xa;lb://orders">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e9" value="TokenRelay&#10;lb://inventory" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;" edge="1" parent="1" source="gateway" target="inventory">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-204" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-176" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;" target="Kex4wcxGBSkoDXFyb8dY-179" value="TokenRelay&#xa;lb://inventory">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- ============ EDGES: consul ============ -->
-        <mxCell id="e10" value="resolve lb://" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d79b00;" edge="1" parent="1" source="gateway" target="consul">
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-205" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-176" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d79b00;" target="Kex4wcxGBSkoDXFyb8dY-177" value="resolve lb://">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="127" y="360"/>
+              <mxPoint x="1491" y="1067.199951171875" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e11" value="register + health" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0;exitY=0.25;exitDx=0;exitDy=0;entryX=1;entryY=0.3;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d79b00;" edge="1" parent="1" source="orders" target="consul">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-206" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-178" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0;exitY=0.25;exitDx=0;exitDy=0;entryX=1;entryY=0.3;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d79b00;" target="Kex4wcxGBSkoDXFyb8dY-177" value="register + health">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e12" value="register + health" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.1;exitY=0;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d79b00;" edge="1" parent="1" source="inventory" target="consul">
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-207" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-179" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.1;exitY=0;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d79b00;" target="Kex4wcxGBSkoDXFyb8dY-177" value="register + health">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="785" y="490"/>
-              <mxPoint x="203" y="490"/>
+              <mxPoint x="2149" y="1197.199951171875" />
+              <mxPoint x="1567" y="1197.199951171875" />
             </Array>
           </mxGeometry>
         </mxCell>
-
-        <!-- ============ EDGES: orders -> inventory (sync) ============ -->
-        <mxCell id="e13" value="OpenFeign + Resilience4j (via Consul)&#10;GET /api/products/{id} &#183; GET /api/stock/{id}&#10;POST /api/reservations &#183; PUT /api/reservations/{orderRef}&#10;GET /api/reservations/{orderRef} (before invoicing)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.6;exitDx=0;exitDy=0;entryX=0;entryY=0.6;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeWidth=2;" edge="1" parent="1" source="orders" target="inventory">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-208" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-178" style="edgeStyle=none;rounded=0;html=1;exitX=1;exitY=0.12;exitDx=0;exitDy=0;entryX=0;entryY=0.12;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;fontStyle=1;strokeColor=#333333;strokeWidth=2;" target="Kex4wcxGBSkoDXFyb8dY-179" value="① GET">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- ============ EDGES: kafka ============ -->
-        <mxCell id="e16" value="publish" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.2;exitY=1;exitDx=0;exitDy=0;entryX=0.1;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d6b656;strokeWidth=2;" edge="1" parent="1" source="orders" target="kafka">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-209" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-178" style="edgeStyle=none;rounded=0;html=1;exitX=1;exitY=0.26;exitDx=0;exitDy=0;entryX=0;entryY=0.26;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;fontStyle=1;strokeColor=#333333;strokeWidth=2;" target="Kex4wcxGBSkoDXFyb8dY-179" value="② GET">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e17" value="consume&#10;product.deactivated, stock.confirmed,&#10;stock.reservation.released, stock.returned" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.2;exitY=0;exitDx=0;exitDy=0;entryX=0.55;entryY=1;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d6b656;strokeWidth=2;" edge="1" parent="1" source="kafka" target="orders">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-210" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-178" style="edgeStyle=none;rounded=0;html=1;exitX=1;exitY=0.4;exitDx=0;exitDy=0;entryX=0;entryY=0.4;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;fontStyle=1;strokeColor=#333333;strokeWidth=2;" target="Kex4wcxGBSkoDXFyb8dY-179" value="③ POST">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e18" value="publish" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.8;exitY=1;exitDx=0;exitDy=0;entryX=0.9;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d6b656;strokeWidth=2;" edge="1" parent="1" source="inventory" target="kafka">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-211" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-178" style="edgeStyle=none;rounded=0;html=1;exitX=1;exitY=0.54;exitDx=0;exitDy=0;entryX=0;entryY=0.54;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;fontStyle=1;strokeColor=#333333;strokeWidth=2;" target="Kex4wcxGBSkoDXFyb8dY-179" value="④ PUT">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e19" value="consume order.nullified&#10;(OrderLifecycleSaga releases the hold)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.8;exitY=0;exitDx=0;exitDy=0;entryX=0.45;entryY=1;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d6b656;strokeWidth=2;" edge="1" parent="1" source="kafka" target="inventory">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-212" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-178" style="edgeStyle=none;rounded=0;html=1;exitX=1;exitY=0.68;exitDx=0;exitDy=0;entryX=0;entryY=0.68;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;fontStyle=1;strokeColor=#333333;strokeWidth=2;" target="Kex4wcxGBSkoDXFyb8dY-179" value="⑤ GET">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- ============ EDGES: databases ============ -->
-        <mxCell id="e20" value="JDBC" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.9;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#b85450;" edge="1" parent="1" source="orders" target="dbOrders">
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-213" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-178" style="edgeStyle=none;rounded=0;html=1;exitX=1;exitY=0.82;exitDx=0;exitDy=0;entryX=0;entryY=0.82;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;fontStyle=1;strokeColor=#333333;strokeWidth=2;dashed=1;" target="Kex4wcxGBSkoDXFyb8dY-179" value="⑥ DEL">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-214" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;align=left;spacingLeft=10;spacingRight=10;verticalAlign=top;spacingTop=8;fontSize=11;" value="&lt;b&gt;Cross-service REST&amp;nbsp;—&amp;nbsp;orders → inventory&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;`@FeignClient(name = &quot;inventory&quot;)` + Resilience4j (circuit breaker &amp;amp; fallback factory), resolved through &lt;b&gt;Consul&lt;/b&gt; by service name rather than host. Each call carries the `erp-orders` client-credentials Bearer token and the caller&#39;s correlation id. &lt;b&gt;Not routed through the gateway&lt;/b&gt;&amp;nbsp;—&amp;nbsp;the gateway is the way in from outside, not the way between.&lt;/font&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;No Axon command crosses a service boundary.&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;`axon.axonserver.enabled=false` in both services, and orders excludes `axon-server-connector` outright, so each has its own in-process command bus and neither can address the other&#39;s. What crosses is an &lt;b&gt;HTTP request&lt;/b&gt;; inventory turns it into a command &lt;i&gt;of its own&lt;/i&gt; on arrival. ③&amp;nbsp;④&amp;nbsp;⑥ are commands in intent, and &lt;/font&gt;&lt;font style=&quot;font-size: 10px;&quot; color=&quot;#82b366&quot;&gt;the green line under each&lt;/font&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt; is the command it actually dispatches.&lt;/font&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;①&lt;/b&gt;&amp;nbsp;`GET /api/products/{productId}`&lt;br&gt;&lt;b&gt;②&lt;/b&gt;&amp;nbsp;`GET /api/stock/{productId}`&lt;br&gt;&lt;b&gt;③&lt;/b&gt;&amp;nbsp;`POST /api/reservations`&amp;nbsp;&amp;nbsp;{orderRef, lines[]}&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot; color=&quot;#82b366&quot;&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;→ &lt;b&gt;ReserveStockCommand&lt;/b&gt;(stockItemId, orderRef, qty)&amp;nbsp;—&amp;nbsp;one per line&lt;/font&gt;&lt;br&gt;&lt;b&gt;④&lt;/b&gt;&amp;nbsp;`PUT /api/reservations/{orderRef}`&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot; color=&quot;#82b366&quot;&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;→ &lt;b&gt;ReserveStockCommand&lt;/b&gt; (new line) · &lt;b&gt;AmendReservationCommand&lt;/b&gt; (changed line) · &lt;b&gt;ReleaseReservationCommand&lt;/b&gt; (dropped line)&lt;/font&gt;&lt;br&gt;&lt;b&gt;⑤&lt;/b&gt;&amp;nbsp;`GET /api/reservations/{orderRef}`&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot; color=&quot;#82b366&quot;&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;→ &lt;b&gt;FindReservationByOrderRefQuery&lt;/b&gt; (Axon query, read model)&lt;/font&gt;&lt;br&gt;&lt;b&gt;⑥&lt;/b&gt;&amp;nbsp;`DELETE /api/reservations/{orderRef}`&amp;nbsp;&amp;nbsp;&lt;i&gt;(compensation)&lt;/i&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot; color=&quot;#82b366&quot;&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;→ &lt;b&gt;ReleaseReservationCommand&lt;/b&gt;(…, WITHDRAWN_BY_INVENTORY)&amp;nbsp;—&amp;nbsp;one per line&lt;/font&gt;&lt;br&gt;&lt;b&gt;Not called by orders:&lt;/b&gt;&amp;nbsp;`POST /api/reservations/{orderRef}/confirm`&lt;br&gt;&lt;font style=&quot;font-size: 10px;&quot; color=&quot;#82b366&quot;&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;→ &lt;b&gt;ConfirmStockCommand&lt;/b&gt;&amp;nbsp;—&amp;nbsp;one per line&lt;/font&gt;" vertex="1">
+          <mxGeometry height="372.8" width="470" x="2600" y="1462.2" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-215" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-179" style="edgeStyle=none;rounded=0;html=1;dashed=1;dashPattern=8 8;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.06;entryDx=0;entryDy=0;endArrow=none;strokeColor=#999999;" target="Kex4wcxGBSkoDXFyb8dY-214">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-216" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-178" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" target="Kex4wcxGBSkoDXFyb8dY-181" value="domain events&#xa;(Axon event bus)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-217" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-181" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.75;exitY=0;exitDx=0;exitDy=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#82b366;strokeWidth=2;" target="Kex4wcxGBSkoDXFyb8dY-178" value="&lt;b&gt;commands&lt;/b&gt;&#xa;CommandGateway → Order aggregate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-218" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-179" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.7;exitY=1;exitDx=0;exitDy=0;entryX=0.655;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" target="Kex4wcxGBSkoDXFyb8dY-182" value="domain events&#xa;(Axon event bus)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-219" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-182" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.28;exitY=0;exitDx=0;exitDy=0;entryX=0.28;entryY=1;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#82b366;strokeWidth=2;" target="Kex4wcxGBSkoDXFyb8dY-179" value="&lt;b&gt;commands&lt;/b&gt;&#xa;CommandGateway → StockItem aggregate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-220" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-181" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.15;exitY=1;exitDx=0;exitDy=0;entryX=0.09;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d6b656;strokeWidth=2;" target="Kex4wcxGBSkoDXFyb8dY-183" value="publish">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-221" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-183" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.35;exitY=0;exitDx=0;exitDy=0;entryX=0.72;entryY=1;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d6b656;strokeWidth=2;" target="Kex4wcxGBSkoDXFyb8dY-181" value="consume">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-222" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-182" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.85;exitY=1;exitDx=0;exitDy=0;entryX=0.91;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d6b656;strokeWidth=2;" target="Kex4wcxGBSkoDXFyb8dY-183" value="publish">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-223" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-183" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.65;exitY=0;exitDx=0;exitDy=0;entryX=0.28;entryY=1;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d6b656;strokeWidth=2;" target="Kex4wcxGBSkoDXFyb8dY-182" value="consume">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-224" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-178" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.9;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#b85450;" target="Kex4wcxGBSkoDXFyb8dY-190" value="JDBC">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="300" y="691"/>
-              <mxPoint x="300" y="1190"/>
+              <mxPoint x="1654.03" y="1398.21" />
+              <mxPoint x="1654.03" y="2420" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e21" value="JDBC" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.9;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#b85450;" edge="1" parent="1" source="inventory" target="dbInventory">
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-225" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-179" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.9;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#b85450;" target="Kex4wcxGBSkoDXFyb8dY-192" value="JDBC">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="1140" y="691"/>
-              <mxPoint x="1140" y="1190"/>
+              <mxPoint x="2534" y="1398.24" />
+              <mxPoint x="2534" y="2420" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e22" value="JDBC" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#b85450;" edge="1" parent="1" source="keycloak" target="dbKeycloak">
+        <mxCell id="Kex4wcxGBSkoDXFyb8dY-226" edge="1" parent="1" source="Kex4wcxGBSkoDXFyb8dY-180" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.9;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#b85450;" target="Kex4wcxGBSkoDXFyb8dY-191" value="JDBC">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="1365" y="1320"/>
-              <mxPoint x="710" y="1320"/>
+              <mxPoint x="3150" y="1398.17" />
+              <mxPoint x="3150" y="2590" />
+              <mxPoint x="2074" y="2590" />
             </Array>
           </mxGeometry>
         </mxCell>
-
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="p2-inventory" name="2 · Inventory context — aggregates, actions, events, queries">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2500" pageHeight="1700" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p2-inventory_1" value="Inventory context — inside the boundary" style="text;html=1;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="50" y="24" width="1400" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_2" value="Two aggregate roots, event-sourced through Axon. Commands change state, events record it, projections answer questions. A published event is one that overrides toExternalEvent()." style="text;html=1;align=left;verticalAlign=top;fontSize=12;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="50" y="62" width="1400" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_3" value="Product aggregate" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#D6B656;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#996600;" vertex="1" parent="1">
+          <mxGeometry x="60" y="130" width="700" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_4" value="Product  ·  aggregate root  ·  ProductId&lt;br&gt;Sku (unique), ProductName, UnitOfMeasure, ProductStatus&lt;br&gt;Invariant: a deactivated product may not back a new reservation" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="60" y="166" width="700" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_5" value="Actions  ·  commands" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6C8EBF;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#3B5A80;" vertex="1" parent="1">
+          <mxGeometry x="60" y="262" width="700" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_6" value="CreateProductCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="298" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_7" value="UpdateProductCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="413" y="298" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_8" value="DeactivateProductCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="328" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_9" value="ReactivateProductCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="413" y="328" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_10" value="Domain events  ·  internal (event-sourced state)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#D79B00;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#8A6000;" vertex="1" parent="1">
+          <mxGeometry x="60" y="380" width="700" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_11" value="ProductCreatedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="416" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_12" value="ProductUpdatedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="413" y="416" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_13" value="ProductDeactivatedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="446" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_14" value="ProductReactivatedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="413" y="446" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_15" value="Published events  ·  Kafka topic (name derived from the class)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B85450;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#B85450;" vertex="1" parent="1">
+          <mxGeometry x="60" y="498" width="700" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_16" value="product.created" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="534" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_17" value="product.updated" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="413" y="534" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_18" value="product.deactivated  → consumed by orders" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="564" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_19" value="product.reactivated" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="413" y="564" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_20" value="Queries  ·  read side  (ProductProjection → ProductView)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#82B366;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#4D7A33;" vertex="1" parent="1">
+          <mxGeometry x="60" y="616" width="700" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_21" value="FindProductByIdQuery" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="652" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_22" value="FindProductBySkuQuery" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="413" y="652" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_23" value="FindProductsByStatusQuery" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="682" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_24" value="(list / filter by status)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="413" y="682" width="337" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_25" value="StockItem aggregate" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#D6B656;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#996600;" vertex="1" parent="1">
+          <mxGeometry x="800" y="130" width="760" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_26" value="StockItem  ·  aggregate root  ·  StockItemId, ProductRef&lt;br&gt;onHand, reserved, reorderThreshold; reservationLedger &amp; confirmedLedger keyed by orderRef&lt;br&gt;Invariants: reserved ≤ onHand · a hold, once confirmed, is no longer a hold" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="800" y="166" width="760" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_27" value="Actions  ·  commands" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6C8EBF;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#3B5A80;" vertex="1" parent="1">
+          <mxGeometry x="800" y="262" width="760" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_28" value="CreateStockItemCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="298" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_29" value="AdjustStockCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="298" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_30" value="ReserveStockCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="328" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_31" value="AmendReservationCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="328" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_32" value="ReleaseReservationCommand (ReleaseReason)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="358" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_33" value="ConfirmStockCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="358" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_34" value="UpdateReorderThresholdCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="388" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_35" value="DeleteStockItemCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="388" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_36" value="Domain events  ·  internal" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#D79B00;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#8A6000;" vertex="1" parent="1">
+          <mxGeometry x="800" y="440" width="760" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_37" value="StockItemCreatedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="476" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_38" value="StockAdjustedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="476" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_39" value="StockReservedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="506" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_40" value="StockReservationAmendedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="506" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_41" value="StockReservationReleasedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="536" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_42" value="StockReturnedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="536" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_43" value="StockConfirmedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="566" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_44" value="StockReorderThresholdUpdatedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="566" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_45" value="StockItemDeletedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="596" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_46" value="" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="596" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_47" value="Published events  ·  Kafka topic" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B85450;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#B85450;" vertex="1" parent="1">
+          <mxGeometry x="800" y="648" width="760" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_48" value="stock.adjusted" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="684" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_49" value="stock.reserved" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="684" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_50" value="stock.reservation.amended" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="714" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_51" value="stock.reservation.released → orders" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="714" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_52" value="stock.returned → orders" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="744" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_53" value="stock.confirmed → orders approves" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="744" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_54" value="Queries  ·  read side" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#82B366;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#4D7A33;" vertex="1" parent="1">
+          <mxGeometry x="800" y="796" width="760" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_55" value="FindStockItemByProductIdQuery" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="832" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_56" value="FindStockItemByStockItemIdQuery" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="832" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_57" value="FindReservationByOrderRefQuery" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="862" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_58" value="StockItemView · ReservationView" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="862" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_59" value="StockSummaryResponse · low-stock list" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="810" y="892" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_60" value="" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1183" y="892" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_61" value="Policies, sagas &amp; projections" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9673A6;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#6B4C7A;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="130" width="840" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_62" value="ActiveProductReservationPolicy  ·  command interceptor&lt;br&gt;&lt;br&gt;Sits on the command bus, so it sees every ReserveStockCommand and&lt;br&gt;AmendReservationCommand whatever dispatched them. Refuses a hold — or a raise of&lt;br&gt;one — against an INACTIVE product. Cross-aggregate rule: it belongs between&lt;br&gt;Product and StockItem, not inside either." style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="166" width="840" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_63" value="OrderLifecycleSaga  ·  process manager&lt;br&gt;&lt;br&gt;on order.nullified (cancelled | rejected | refunded):&lt;br&gt;   look up ReservationView by orderRef  →  for each reserved line&lt;br&gt;   send ReleaseReservationCommand(stockItemId, orderRef, ORDER_NULLIFIED)&lt;br&gt;&lt;br&gt;Releases what was actually taken, from this service&#39;s own record — not from the&lt;br&gt;message. No reservation is a normal outcome; releasing twice is a no-op." style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="280" width="840" height="108" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_64" value="Read models  ·  projections" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#82B366;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#4D7A33;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="410" width="840" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_65" value="ProductProjection → ProductView  (product_view)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="446" width="840" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_66" value="StockItemProjection → StockItemView  (stock_item_view)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="488" width="840" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_67" value="ReservationProjection → ReservationView  (keyed by orderRef)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="530" width="840" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_68" value="Inbound / outbound" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B3B3B3;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="590" width="840" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_69" value="IN  · KafkaEventConsumer  order.nullified → OrderEventTranslator → NullifiedOrder&lt;br&gt;IN  · REST from orders   POST/PUT/DELETE /api/reservations  (service account, JWT)&lt;br&gt;OUT · KafkaMessagingRepositoryImpl publishes every event that overrides toExternalEvent()&lt;br&gt;OUT · ReleaseReason distinguishes ORDER_NULLIFIED (an echo of the order&#39;s own decision)&lt;br&gt;      from WITHDRAWN_BY_INVENTORY (news the order has to act on)" style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#FFFFE0;strokeColor=#CCCC66;align=left;verticalAlign=top;spacingLeft=6;spacingTop=2;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="626" width="840" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_70" value="Why a reservation is not an aggregate&lt;br&gt;&lt;br&gt;The hold lives on the StockItem that owns the goods — reservationLedger[orderRef] — because&lt;br&gt;that is where the invariant reserved ≤ onHand has to hold. ReservationView is the read-side&lt;br&gt;assembly across stock items for one order, which is what the saga and the REST API need.&lt;br&gt;orderRef is a plain string: a reference into another context, deliberately not a typed&lt;br&gt;OrderId, because this context knows nothing about what an order is." style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#FFFFE0;strokeColor=#CCCC66;align=left;verticalAlign=top;spacingLeft=6;spacingTop=2;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="726" width="840" height="122" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_71" value="rejects ReserveStock / AmendReservation" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#666666;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.3;exitDx=0;exitDy=0;entryX=1;entryY=0.3;entryDx=0;entryDy=0;" edge="1" parent="1" source="p2-inventory_62" target="p2-inventory_26">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_72" value="reads ProductStatus" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#666666;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.7;exitDx=0;exitDy=0;" edge="1" parent="1" source="p2-inventory_62" target="p2-inventory_4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_73" value="ReleaseReservationCommand" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#666666;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.7;entryDx=0;entryDy=0;" edge="1" parent="1" source="p2-inventory_63" target="p2-inventory_26">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_74" value="Legend" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B3B3B3;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="60" y="966" width="250" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_75" value="Aggregate / entity" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1002" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_76" value="Command (action)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1032" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_77" value="Domain event (internal)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1062" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_78" value="Published event (Kafka topic)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1092" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_79" value="Query / read model" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1122" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_80" value="Policy / saga / process" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1152" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_81" value="Value object" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1182" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-inventory_82" value="REST endpoint / actor" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E6F2FF;strokeColor=#3366A0;fontSize=11;align=left;spacingLeft=8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1212" width="230" height="24" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="p3-orders" name="3 · Orders context — aggregate, actions, events, queries">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2500" pageHeight="1700" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p3-orders_1" value="Orders context — inside the boundary" style="text;html=1;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="50" y="24" width="1400" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_2" value="One aggregate root. Invoice and Transaction are entities inside it, not aggregates of their own: an invoice must total exactly what the order holds, and money paid must reconcile against it." style="text;html=1;align=left;verticalAlign=top;fontSize=12;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="50" y="62" width="1500" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_3" value="Order aggregate" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#D6B656;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#996600;" vertex="1" parent="1">
+          <mxGeometry x="60" y="130" width="760" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_4" value="Order  ·  aggregate root  ·  OrderId&lt;br&gt;customerId (Keycloak subject), CustomerName, OrderStatus, totalAmount&lt;br&gt;Invariants: only a PENDING order may be edited or rejected · an order with money&lt;br&gt;against it may not be closed by withdrawn stock · an invoice totals the order&#39;s items" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="60" y="166" width="760" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_5" value="OrderItem  ·  entity   productId, quantity, price" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFF7DC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="256" width="720" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_6" value="Invoice + InvoiceLineItem  ·  entity   invoiceNumber, embg, total" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFF7DC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="288" width="720" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_7" value="Transaction  ·  entity   amount, paymentType (a reversal is negative)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFF7DC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="320" width="720" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_8" value="Actions  ·  commands  (write side)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6C8EBF;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#3B5A80;" vertex="1" parent="1">
+          <mxGeometry x="60" y="366" width="760" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_9" value="CreateOrderCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="402" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_10" value="UpdateOrderItemsCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="402" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_11" value="RejectOrderCommand  (administrator)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="432" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_12" value="CancelOrderCommand  (customer)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="432" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_13" value="ApproveOrderForConfirmedStockCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="462" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_14" value="RejectOrderForWithdrawnStockCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="462" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_15" value="RegisterPaymentCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="492" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_16" value="GenerateInvoiceCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="492" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_17" value="UpdateInvoiceLineItemsCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="522" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_18" value="ReverseInvoiceCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="522" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_19" value="Domain events  ·  internal" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#D79B00;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#8A6000;" vertex="1" parent="1">
+          <mxGeometry x="60" y="574" width="760" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_20" value="OrderCreatedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="610" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_21" value="OrderItemsUpdatedEvent  (internal only)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="610" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_22" value="OrderApprovedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="640" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_23" value="OrderRejectedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="640" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_24" value="OrderCancelledEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="670" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_25" value="PaymentCreatedEvent  (internal only)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="670" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_26" value="PaymentReversedEvent  (internal only)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="700" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_27" value="InvoiceGeneratedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="700" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_28" value="InvoiceLineItemsUpdatedEvent  (internal)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="730" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_29" value="InvoiceReversedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="730" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_30" value="Published events  ·  Kafka topic" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B85450;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#B85450;" vertex="1" parent="1">
+          <mxGeometry x="60" y="782" width="760" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_31" value="order.created" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="818" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_32" value="order.approved" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="818" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_33" value="order.cancelled" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="848" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_34" value="invoice.generated" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="848" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_35" value="invoice.reversed" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="878" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_36" value="order.nullified  (CANCELLED|REJECTED|REFUNDED)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="878" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_37" value="Queries  ·  read side  (via QueryGateway, never the repository)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#82B366;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#4D7A33;" vertex="1" parent="1">
+          <mxGeometry x="60" y="930" width="760" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_38" value="FindAllOrdersQuery" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="966" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_39" value="FindOrderByIdQuery" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="966" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_40" value="FindOrdersByCustomerQuery" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="996" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_41" value="FindOrdersByStatusQuery" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="996" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_42" value="FindInvoiceByIdQuery" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1026" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_43" value="FindTransactionByIdQuery" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="1026" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_44" value="OrderView · InvoiceView · TransactionView" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1056" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_45" value="" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="443" y="1056" width="367" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_46" value="Reactions to the other context" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9673A6;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#6B4C7A;" vertex="1" parent="1">
+          <mxGeometry x="860" y="130" width="820" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_47" value="StockLifecycleEventHandler&lt;br&gt;&lt;br&gt;on stock.confirmed        → ApproveOrderForConfirmedStockCommand&lt;br&gt;on stock.reservation.released (WITHDRAWN_BY_INVENTORY)&lt;br&gt;on stock.returned          → RejectOrderForWithdrawnStockCommand(detail)&lt;br&gt;A release the order itself caused is ignored — it is our own decision coming back." style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="860" y="166" width="820" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_48" value="ProductDeactivatedEventHandler&lt;br&gt;&lt;br&gt;on product.deactivated → find PENDING orders holding that product →&lt;br&gt;RejectOrderCommand for each. A product withdrawn cannot be sold." style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="860" y="266" width="820" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_49" value="GenerateInvoiceCommandHandler  ·  not a plain @CommandHandler&lt;br&gt;&lt;br&gt;Re-checks with inventory that the order&#39;s goods are still held before the aggregate&lt;br&gt;issues the invoice — the one command that must reach outside the boundary, so it&lt;br&gt;lives outside the aggregate rather than inside it." style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="860" y="342" width="820" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_50" value="Outbound synchronous  ·  InventoryClient (Feign)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#3366A0;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#3366A0;" vertex="1" parent="1">
+          <mxGeometry x="860" y="442" width="820" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_51" value="getProduct(id) · getStock(id)   — price and availability at placement" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E6F2FF;strokeColor=#3366A0;fontSize=11;align=left;spacingLeft=8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="860" y="478" width="820" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_52" value="createReservation(orderRef, lines)   — take the goods now" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E6F2FF;strokeColor=#3366A0;fontSize=11;align=left;spacingLeft=8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="860" y="520" width="820" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_53" value="amendReservation(orderRef) · releaseReservation(orderRef)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E6F2FF;strokeColor=#3366A0;fontSize=11;align=left;spacingLeft=8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="860" y="562" width="820" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_54" value="getReservation(orderRef)   — the invoice-time re-check" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E6F2FF;strokeColor=#3366A0;fontSize=11;align=left;spacingLeft=8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="860" y="604" width="820" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_55" value="Resilience: circuit breaker + InventoryClientFallback. BearerTokenInterceptor carries the&lt;br&gt;service token; CorrelationIdInterceptor carries the correlation id across the hop." style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#FFFFE0;strokeColor=#CCCC66;align=left;verticalAlign=top;spacingLeft=6;spacingTop=2;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="860" y="646" width="820" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_56" value="Read models  ·  projections" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#82B366;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#4D7A33;" vertex="1" parent="1">
+          <mxGeometry x="860" y="720" width="820" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_57" value="OrderView (+ items) — updated from the order&#39;s own events" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="860" y="756" width="820" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_58" value="InvoiceView (+ line items)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="860" y="798" width="820" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_59" value="TransactionView — payments and their reversals" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="860" y="840" width="820" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_60" value="Why approval is not an administrator&#39;s action&lt;br&gt;&lt;br&gt;There is no ApproveOrderCommand an operator can send. Approval means the goods behind the&lt;br&gt;order have actually left the warehouse, and only inventory knows that — so the only path to&lt;br&gt;APPROVED is stock.confirmed arriving. An approval this service granted on its own would be a&lt;br&gt;promise made against a hold inventory might release the next moment.&lt;br&gt;&lt;br&gt;Rejection is split for the same reason: RejectOrderCommand refuses something still pending;&lt;br&gt;RejectOrderForWithdrawnStockCommand arrives after the fact about an order that may already&lt;br&gt;be approved, so it must not be bound by the pending rule." style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#FFFFE0;strokeColor=#CCCC66;align=left;verticalAlign=top;spacingLeft=6;spacingTop=2;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="860" y="900" width="820" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_61" value="Order state machine" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B3B3B3;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="1720" y="130" width="740" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_62" value="(placed)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1960" y="176" width="200" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_63" value="PENDING" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1960" y="260" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_64" value="APPROVED" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1960" y="380" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_65" value="REJECTED" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1730" y="380" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_66" value="CANCELLED" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="2200" y="500" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_67" value="CreateOrder + reservation taken" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p3-orders_62" target="p3-orders_63">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_68" value="RejectOrder · product.deactivated" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p3-orders_63" target="p3-orders_65">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_69" value="stock.confirmed" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p3-orders_63" target="p3-orders_64">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_70" value="CancelOrder" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p3-orders_64" target="p3-orders_66">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_71" value="stock withdrawn&lt;br&gt;(only if no money against it)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p3-orders_64" target="p3-orders_65">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_72" value="Invoicing is orthogonal to status: an APPROVED order may be invoiced&lt;br&gt;(invoice.generated) and that invoice later reversed (invoice.reversed).&lt;br&gt;Each of REJECTED, CANCELLED and a reversed invoice also publishes&lt;br&gt;order.nullified with the matching reason, which is the single event&lt;br&gt;inventory listens to in order to give the goods back." style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#FFFFE0;strokeColor=#CCCC66;align=left;verticalAlign=top;spacingLeft=6;spacingTop=2;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1730" y="560" width="700" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_73" value="Legend" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B3B3B3;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1130" width="250" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_74" value="Aggregate / entity" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1166" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_75" value="Command (action)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1196" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_76" value="Domain event (internal)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1226" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_77" value="Published event (Kafka topic)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1256" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_78" value="Query / read model" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1286" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_79" value="Policy / saga / process" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1316" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_80" value="Value object" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1346" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p3-orders_81" value="REST endpoint / actor" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E6F2FF;strokeColor=#3366A0;fontSize=11;align=left;spacingLeft=8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1376" width="230" height="24" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="p4-flow" name="4 · Order lifecycle — event storming flow">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2600" pageHeight="1500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p4-flow_1" value="Order lifecycle across both contexts" style="text;html=1;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="50" y="24" width="1500" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_2" value="Left to right in time. Blue = command, orange = domain event, red = published event, purple = policy/saga, green = read model. Blue arrows are synchronous calls, dashed red are Kafka." style="text;html=1;align=left;verticalAlign=top;fontSize=12;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="50" y="62" width="1600" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_3" value="Actor" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B3B3B3;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="130" width="2500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_4" value="Orders context" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FBFBFB;strokeColor=#B85450;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;fontStyle=1;fontSize=16;fontColor=#B85450;" vertex="1" parent="1">
+          <mxGeometry x="40" y="250" width="2500" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_5" value="Kafka  ·  published language" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FBFBFB;strokeColor=#999999;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;fontStyle=1;fontSize=16;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="40" y="620" width="2500" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_6" value="Inventory context" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FBFBFB;strokeColor=#82B366;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;fontStyle=1;fontSize=16;fontColor=#4D7A33;" vertex="1" parent="1">
+          <mxGeometry x="40" y="760" width="2500" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_7" value="Customer places order" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="152" width="210" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_8" value="CreateOrderCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="294" width="210" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_9" value="OrderCommandService&lt;br&gt;prices items via InventoryClient" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="336" width="210" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_10" value="POST /api/reservations&lt;br&gt;(synchronous, blocking)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E6F2FF;strokeColor=#3366A0;fontSize=11;align=left;spacingLeft=8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="80" y="392" width="210" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_11" value="OrderCreatedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="450" width="210" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_12" value="order.created" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="660" width="210" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_13" value="ReserveStockCommand&lt;br&gt;(per stock item)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="804" width="210" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_14" value="ActiveProductReservationPolicy&lt;br&gt;refuses inactive products" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="862" width="210" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_15" value="StockReservedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="920" width="210" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_16" value="ReservationView(orderRef)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="962" width="210" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_7" target="p4-flow_8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_8" target="p4-flow_9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_9" target="p4-flow_10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_20" value="sync" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#3366A0;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_10" target="p4-flow_13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_13" target="p4-flow_14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_14" target="p4-flow_15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_23" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_15" target="p4-flow_16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_24" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_10" target="p4-flow_11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_25" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#B85450;dashed=1;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_11" target="p4-flow_12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_26" value="Warehouse confirms goods out" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="400" y="152" width="230" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_27" value="ConfirmStockCommand&lt;br&gt;POST /api/reservations/{ref}/confirm" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="400" y="804" width="230" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_28" value="StockConfirmedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="400" y="862" width="230" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_29" value="stock.confirmed" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="400" y="660" width="230" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_30" value="StockLifecycleEventHandler&lt;br&gt;→ ApproveOrderForConfirmedStock" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="400" y="450" width="230" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_31" value="OrderApprovedEvent  (PENDING → APPROVED)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="400" y="392" width="230" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_32" value="order.approved" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="680" y="660" width="200" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_33" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_26" target="p4-flow_27">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_34" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_27" target="p4-flow_28">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_35" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#B85450;dashed=1;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_28" target="p4-flow_29">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_36" value="async" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#B85450;dashed=1;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_29" target="p4-flow_30">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_37" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_30" target="p4-flow_31">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_38" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#B85450;dashed=1;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_31" target="p4-flow_32">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_39" value="Customer pays / is billed" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="940" y="152" width="230" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_40" value="RegisterPaymentCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="940" y="294" width="230" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_41" value="PaymentCreatedEvent  (internal)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="940" y="336" width="230" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_42" value="GenerateInvoiceCommandHandler&lt;br&gt;re-checks the hold first" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="940" y="378" width="230" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_43" value="InvoiceGeneratedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="940" y="436" width="230" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_44" value="invoice.generated" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="940" y="660" width="230" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_45" value="GET /api/reservations/{orderRef}&lt;br&gt;still held?" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E6F2FF;strokeColor=#3366A0;fontSize=11;align=left;spacingLeft=8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="940" y="804" width="230" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_46" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_39" target="p4-flow_40">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_47" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_40" target="p4-flow_41">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_48" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_41" target="p4-flow_42">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_49" value="sync re-check" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#3366A0;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_42" target="p4-flow_45">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_50" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_42" target="p4-flow_43">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_51" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#B85450;dashed=1;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_43" target="p4-flow_44">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_52" value="Cancelled · rejected · refunded" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="152" width="260" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_53" value="CancelOrderCommand · RejectOrderCommand&lt;br&gt;ReverseInvoiceCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="294" width="260" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_54" value="OrderCancelledEvent · OrderRejectedEvent&lt;br&gt;InvoiceReversedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="352" width="260" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_55" value="order.nullified  (+ reason)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="660" width="260" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_56" value="OrderLifecycleSaga&lt;br&gt;looks up ReservationView" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="804" width="260" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_57" value="ReleaseReservationCommand&lt;br&gt;reason = ORDER_NULLIFIED" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="862" width="260" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_58" value="StockReservationReleasedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="920" width="260" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_59" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_52" target="p4-flow_53">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_60" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_53" target="p4-flow_54">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_61" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#B85450;dashed=1;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_54" target="p4-flow_55">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_62" value="async" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#B85450;dashed=1;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_55" target="p4-flow_56">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_63" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_56" target="p4-flow_57">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_64" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_57" target="p4-flow_58">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_65" value="Inventory withdraws the goods" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1940" y="152" width="280" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_66" value="DELETE /api/reservations/{ref}  ·  adjust&lt;br&gt;→ release / return" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1940" y="804" width="280" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_67" value="StockReservationReleasedEvent&lt;br&gt;(WITHDRAWN_BY_INVENTORY) · StockReturnedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1940" y="862" width="280" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_68" value="stock.reservation.released · stock.returned" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1940" y="660" width="280" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_69" value="StockLifecycleEventHandler&lt;br&gt;→ RejectOrderForWithdrawnStockCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1940" y="436" width="280" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_70" value="OrderRejectedEvent&lt;br&gt;(refused if money stands against the order)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1940" y="378" width="280" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_71" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_65" target="p4-flow_66">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_72" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_66" target="p4-flow_67">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_73" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#B85450;dashed=1;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_67" target="p4-flow_68">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_74" value="async" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#B85450;dashed=1;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_68" target="p4-flow_69">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_75" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#444444;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_69" target="p4-flow_70">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_76" value="DeactivateProductCommand" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="2260" y="804" width="280" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_77" value="ProductDeactivatedEvent" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="2260" y="862" width="280" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_78" value="product.deactivated" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="2260" y="660" width="280" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_79" value="ProductDeactivatedEventHandler&lt;br&gt;→ RejectOrderCommand for PENDING orders" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="2260" y="436" width="280" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_80" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#B85450;dashed=1;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_77" target="p4-flow_78">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_81" value="async" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#B85450;dashed=1;endArrow=block;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="p4-flow_78" target="p4-flow_79">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_82" value="The asymmetry is the design&lt;br&gt;&lt;br&gt;Taking stock is a command: orders asks synchronously, at placement, and needs the answer before it can&lt;br&gt;accept the order at all. Giving stock back is an event: nobody is waiting, the order is already over&lt;br&gt;whichever way it ended, and it has to happen even if orders is not in a position to ask.&lt;br&gt;&lt;br&gt;order.nullified collapses three endings into one topic, so a consumer holding goods needs one rule&lt;br&gt;rather than a subscription per way an order can die." style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#FFFFE0;strokeColor=#CCCC66;align=left;verticalAlign=top;spacingLeft=6;spacingTop=2;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="1130" width="1180" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_83" value="Idempotence and ownership&lt;br&gt;&lt;br&gt;· The saga releases from this service&#39;s own ReservationView, not from the message — an order edited after&lt;br&gt;  approval no longer matches the lines on the event that ended it.&lt;br&gt;· Releasing a hold that is gone is a no-op; a nullification arriving twice finds nothing to do.&lt;br&gt;· ReleaseReason separates an echo of the order&#39;s own decision from news it must act on — without it,&lt;br&gt;  releasing stock for a cancelled order would bounce back and reject the order that caused it." style="shape=note;whiteSpace=wrap;html=1;size=14;fillColor=#FFFFE0;strokeColor=#CCCC66;align=left;verticalAlign=top;spacingLeft=6;spacingTop=2;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="1130" width="1180" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_84" value="Legend" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B3B3B3;dashed=0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=12;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="80" y="900" width="250" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_85" value="Command (action)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="90" y="936" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_86" value="Domain event (internal)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="90" y="966" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_87" value="Published event (Kafka)" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="90" y="996" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_88" value="Query / read model" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="90" y="1026" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_89" value="Policy / saga / handler" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="90" y="1056" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_90" value="REST endpoint" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#E6F2FF;strokeColor=#3366A0;fontSize=11;align=left;spacingLeft=8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="1086" width="230" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="p4-flow_91" value="Actor" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="90" y="1116" width="230" height="24" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
