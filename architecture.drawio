@@ -1,0 +1,214 @@
+<mxfile host="app.diagrams.net" agent="claude-code" version="24.0.0">
+  <diagram id="erp-architecture" name="ERP Architecture">
+    <mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ============ TITLE ============ -->
+        <mxCell id="title" value="ERP Microservice System &#8212; Architecture" style="text;html=1;align=left;verticalAlign=middle;fontSize=24;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="-10" width="700" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="Spring Boot / Kotlin &#183; Axon CQRS + Event Sourcing &#183; Kafka &#183; Keycloak &#183; Consul &#183; Docker Compose" style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="60" y="26" width="900" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ CLIENT LAYER ============ -->
+        <mxCell id="grpClients" value="Client applications" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=none;strokeColor=#6c8ebf;verticalAlign=top;align=left;spacingLeft=10;fontStyle=2;fontColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="60" width="1480" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="browser" value="&lt;b&gt;Web browser&lt;/b&gt;&lt;br&gt;Swagger UI served by the gateway&lt;br&gt;(both services in one dropdown)&lt;br&gt;OAuth2 login &#8594; Keycloak" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="110" y="95" width="230" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="curl" value="&lt;b&gt;curl / test-scripts&lt;/b&gt;&lt;br&gt;REST + Bearer token&lt;br&gt;(no SPA in this repo)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="390" y="95" width="200" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="mcpcli" value="&lt;b&gt;MCP client (LLM host)&lt;/b&gt;&lt;br&gt;Claude Desktop &#183; LM Studio &#183; opencode&lt;br&gt;terminal client" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="95" width="260" height="90" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ MCP SERVER ============ -->
+        <mxCell id="mcpsrv" value="&lt;b&gt;MCP Server&lt;/b&gt;&#160;:8765&lt;br&gt;Python &#183; FastMCP&lt;br&gt;stdio (default) or streamable-HTTP /mcp&lt;br&gt;7 inventory read tools, 5 order read tools,&lt;br&gt;9 write tools (ERP_ENABLE_WRITES)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="230" width="330" height="110" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ API GATEWAY ============ -->
+        <mxCell id="gateway" value="&lt;b&gt;API Gateway&lt;/b&gt;&#160;:8088&#160;&#160;(Spring Cloud Gateway, WebFlux)&lt;br&gt;&#8226; oauth2Login (browser) + JWT resource server (API) + TokenRelay filter&lt;br&gt;&#8226; /api/inventory/** &#8594; lb://inventory /api/**&#160;&#160;&#160;&#8226; /api/orders/** &#8594; lb://orders /orders/**, /invoices/**&lt;br&gt;&#8226; /docs/&amp;lt;service&amp;gt;/** &#8594; proxied OpenAPI + AsyncAPI documents&#160;&#160;&#8226; serves the aggregated Swagger UI" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=10;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="340" y="300" width="700" height="120" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ CONSUL ============ -->
+        <mxCell id="consul" value="&lt;b&gt;Consul&lt;/b&gt;&#160;:8500&lt;br&gt;Service registry&lt;br&gt;+ health checks&lt;br&gt;(lb:// resolution,&lt;br&gt;Feign load balancing)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="60" y="560" width="190" height="150" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ MICROSERVICES ============ -->
+        <mxCell id="orders" value="&lt;b&gt;Order Service&lt;/b&gt;&#160;:8089&#160;&#160;(`orders`)&lt;br&gt;Spring Boot &#183; Kotlin &#183; Axon 4.13&lt;br&gt;&#8226; Aggregate: Order (create, amend, approve,&lt;br&gt;&#160;&#160; reject, cancel, payments, invoice, reversal)&lt;br&gt;&#8226; CQRS: commands &#8594; event store, JPA read model&lt;br&gt;&#8226; OpenFeign + Resilience4j &#8594; inventory&lt;br&gt;&#8226; springdoc OpenAPI + springwolf AsyncAPI" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="330" y="520" width="350" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="inventory" value="&lt;b&gt;Inventory Service&lt;/b&gt;&#160;:8081&#160;&#160;(`inventory`)&lt;br&gt;Spring Boot &#183; Kotlin &#183; Axon 4.10&lt;br&gt;&#8226; Aggregates: Product, StockItem&lt;br&gt;&#8226; Reservations: hold / amend / release / confirm&lt;br&gt;&#8226; OrderLifecycleSaga, ActiveProductReservationPolicy&lt;br&gt;&#8226; Read models: catalogue, stock, low-stock, summary&lt;br&gt;&#8226; springdoc OpenAPI + springwolf AsyncAPI" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="750" y="520" width="350" height="190" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ KEYCLOAK ============ -->
+        <mxCell id="keycloak" value="&lt;b&gt;Keycloak 24&lt;/b&gt;&#160;:8080&lt;br&gt;&lt;i&gt;Identity provider (external integration)&lt;/i&gt;&lt;br&gt;Realm &lt;b&gt;erp&lt;/b&gt; &#8212; OIDC / JWT, JWKS&lt;br&gt;&#8226; erp-gateway &#8212; authorization code (browser)&lt;br&gt;&#8226; erp-orders &#8212; client credentials (SERVICE)&lt;br&gt;&#8226; erp-mcp &#8212; client credentials (ADMIN+CUSTOMER)&lt;br&gt;Roles: ADMIN &#183; CUSTOMER &#183; SERVICE" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=8;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="520" width="330" height="190" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ KAFKA ============ -->
+        <mxCell id="kafka" value="&lt;b&gt;Apache Kafka (KRaft)&lt;/b&gt;&#160;:9092&#160;&#8212;&#160;event broker&#160;&#160;(durable log on a named volume)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=top;align=center;spacingTop=6;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="330" y="800" width="770" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="topicsOrders" value="&lt;b&gt;Published by orders&lt;/b&gt;&lt;br&gt;order.created&lt;br&gt;order.approved&lt;br&gt;order.cancelled&lt;br&gt;&lt;b&gt;order.nullified&lt;/b&gt; (CANCELLED/REJECTED/REFUNDED)&lt;br&gt;invoice.generated &#183; invoice.reversed" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;align=left;spacingLeft=8;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="355" y="855" width="340" height="125" as="geometry"/>
+        </mxCell>
+        <mxCell id="topicsInv" value="&lt;b&gt;Published by inventory&lt;/b&gt;&lt;br&gt;product.created &#183; product.updated&lt;br&gt;product.deactivated &#183; product.reactivated&lt;br&gt;stock.reserved &#183; stock.confirmed &#183; stock.adjusted&lt;br&gt;stock.reservation.released &#183; stock.returned" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;align=left;spacingLeft=8;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="725" y="855" width="350" height="125" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ POSTGRES ============ -->
+        <mxCell id="postgres" value="&lt;b&gt;PostgreSQL 15&lt;/b&gt;&#160;:5432&#160;&#8212;&#160;one instance, three logical databases (persistent volume)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;verticalAlign=top;align=center;spacingTop=6;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="330" y="1090" width="770" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="dbOrders" value="&lt;b&gt;orders&lt;/b&gt;&lt;br&gt;Axon JPA event store&lt;br&gt;+ order/invoice read model" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=12;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="360" y="1145" width="210" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="dbKeycloak" value="&lt;b&gt;keycloak&lt;/b&gt;&lt;br&gt;realm, users,&lt;br&gt;clients, sessions" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=12;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="605" y="1145" width="210" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="dbInventory" value="&lt;b&gt;inventory&lt;/b&gt;&lt;br&gt;Axon JPA event store&lt;br&gt;+ product/stock read model" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=12;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="850" y="1145" width="220" height="90" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ LEGEND ============ -->
+        <mxCell id="legend" value="&lt;b&gt;Legend&lt;/b&gt;&lt;br&gt;&lt;br&gt;&#8212;&#8212;&#8594;&#160;&#160;synchronous REST / JDBC&lt;br&gt;- - -&#8594;&#160;&#160;asynchronous Kafka event&lt;br&gt;&#183;&#183;&#183;&#183;&#183;&#8594;&#160;&#160;auth: token issue / JWKS&lt;br&gt;&lt;br&gt;All containers share the Docker&lt;br&gt;bridge network `app-network`." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="800" width="240" height="170" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ EDGES: clients ============ -->
+        <mxCell id="e1" value="HTTPS / REST" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.1;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;" edge="1" parent="1" source="browser" target="gateway">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" value="REST + Bearer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;" edge="1" parent="1" source="curl" target="gateway">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" value="MCP / JSON-RPC 2.0&#10;(stdio or streamable-HTTP)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#9673a6;" edge="1" parent="1" source="mcpcli" target="mcpsrv">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" value="REST + Bearer&#10;(every tool call goes through the gateway)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#9673a6;" edge="1" parent="1" source="mcpsrv" target="gateway">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="285"/>
+              <mxPoint x="1120" y="330"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ============ EDGES: auth ============ -->
+        <mxCell id="e5" value="client_credentials (erp-mcp)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=0.85;exitY=1;exitDx=0;exitDy=0;entryX=0.85;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" edge="1" parent="1" source="mcpsrv" target="keycloak">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e6" value="OIDC authorization code (login)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.2;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" edge="1" parent="1" source="browser" target="keycloak">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1600" y="140"/>
+              <mxPoint x="1600" y="558"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" value="token exchange + JWKS" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" edge="1" parent="1" source="gateway" target="keycloak">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1365" y="384"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e14" value="client_credentials (erp-orders)&#10;+ JWKS validation" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=0.9;exitY=0;exitDx=0;exitDy=0;entryX=0.12;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" edge="1" parent="1" source="orders" target="keycloak">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="645" y="470"/>
+              <mxPoint x="1240" y="470"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e15" value="JWKS (validate JWT)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#666666;" edge="1" parent="1" source="inventory" target="keycloak">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ EDGES: gateway -> services ============ -->
+        <mxCell id="e8" value="TokenRelay&#10;lb://orders" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;" edge="1" parent="1" source="gateway" target="orders">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e9" value="TokenRelay&#10;lb://inventory" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;" edge="1" parent="1" source="gateway" target="inventory">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ EDGES: consul ============ -->
+        <mxCell id="e10" value="resolve lb://" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d79b00;" edge="1" parent="1" source="gateway" target="consul">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="127" y="360"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e11" value="register + health" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0;exitY=0.25;exitDx=0;exitDy=0;entryX=1;entryY=0.3;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d79b00;" edge="1" parent="1" source="orders" target="consul">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e12" value="register + health" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.1;exitY=0;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d79b00;" edge="1" parent="1" source="inventory" target="consul">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="785" y="490"/>
+              <mxPoint x="203" y="490"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ============ EDGES: orders -> inventory (sync) ============ -->
+        <mxCell id="e13" value="OpenFeign + Resilience4j (via Consul)&#10;GET /api/products/{id} &#183; GET /api/stock/{id}&#10;POST /api/reservations &#183; PUT /api/reservations/{orderRef}&#10;GET /api/reservations/{orderRef} (before invoicing)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.6;exitDx=0;exitDy=0;entryX=0;entryY=0.6;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeWidth=2;" edge="1" parent="1" source="orders" target="inventory">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ EDGES: kafka ============ -->
+        <mxCell id="e16" value="publish" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.2;exitY=1;exitDx=0;exitDy=0;entryX=0.1;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d6b656;strokeWidth=2;" edge="1" parent="1" source="orders" target="kafka">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e17" value="consume&#10;product.deactivated, stock.confirmed,&#10;stock.reservation.released, stock.returned" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.2;exitY=0;exitDx=0;exitDy=0;entryX=0.55;entryY=1;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d6b656;strokeWidth=2;" edge="1" parent="1" source="kafka" target="orders">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e18" value="publish" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.8;exitY=1;exitDx=0;exitDy=0;entryX=0.9;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d6b656;strokeWidth=2;" edge="1" parent="1" source="inventory" target="kafka">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e19" value="consume order.nullified&#10;(OrderLifecycleSaga releases the hold)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0.8;exitY=0;exitDx=0;exitDy=0;entryX=0.45;entryY=1;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#d6b656;strokeWidth=2;" edge="1" parent="1" source="kafka" target="inventory">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ EDGES: databases ============ -->
+        <mxCell id="e20" value="JDBC" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.9;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#b85450;" edge="1" parent="1" source="orders" target="dbOrders">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="300" y="691"/>
+              <mxPoint x="300" y="1190"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e21" value="JDBC" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.9;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#b85450;" edge="1" parent="1" source="inventory" target="dbInventory">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1140" y="691"/>
+              <mxPoint x="1140" y="1190"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e22" value="JDBC" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#b85450;" edge="1" parent="1" source="keycloak" target="dbKeycloak">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1365" y="1320"/>
+              <mxPoint x="710" y="1320"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

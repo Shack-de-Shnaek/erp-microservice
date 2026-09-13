@@ -51,8 +51,9 @@ class OpenApiConfig {
                         "Behind the API gateway the same endpoints are published under " +
                         "`/api/orders/` - `/orders/{id}` here is `/api/orders/{id}` there, and " +
                         "`/invoices/{id}` is `/api/orders/invoices/{id}`. All of them require a " +
-                        "Keycloak access token from the `erp` realm; approving and rejecting an " +
-                        "order additionally requires ADMIN."
+                        "Keycloak access token from the `erp` realm; rejecting an order " +
+                        "additionally requires ADMIN. No endpoint approves an order: that " +
+                        "happens when inventory confirms its goods out of the warehouse."
                 )
         )
         .addServersItem(Server().url(publicUrl).description("The orders service directly"))

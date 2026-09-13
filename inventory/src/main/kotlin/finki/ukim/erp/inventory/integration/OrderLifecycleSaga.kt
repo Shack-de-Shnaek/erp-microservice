@@ -24,7 +24,8 @@ import org.springframework.stereotype.Component
  * So reservation arrived here as `POST /api/reservations` before the order existed, and release
  * arrives as `order.nullified` - cancelled, rejected, refunded, orders says all three in the same
  * words - after it is finished. There is no longer anything to do on `order.approved`: the goods
- * were put aside when the order was placed and approval only decides what happens to them.
+ * were put aside when the order was placed, and approval is now what *this* service causes by
+ * confirming them out - so that topic carries news of our own decision coming back to us.
  *
  * No Kafka in here. [finki.ukim.erp.inventory.infrastructure.kafka.KafkaEventConsumer] deals with
  * the transport and hands this translated types, so the decisions can be read and tested without a

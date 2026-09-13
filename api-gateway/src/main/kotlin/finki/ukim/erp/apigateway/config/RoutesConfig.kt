@@ -18,7 +18,7 @@ import org.springframework.context.annotation.Configuration
  *
  * /api/orders                      -> orders     /orders
  * /api/orders/all                  -> orders     /orders/all
- * /api/orders/{id}/approve         -> orders     /orders/{id}/approve
+ * /api/orders/{id}/cancel          -> orders     /orders/{id}/cancel
  * /api/orders/{id}/payments        -> orders     /orders/{id}/payments
  * /api/orders/invoices/{id}        -> orders     /invoices/{id}
  *

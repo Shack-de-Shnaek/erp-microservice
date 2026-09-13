@@ -44,14 +44,17 @@ class ShippedDocumentationConfigTest {
         assertEquals("finki.ukim.erp.orders", docket.basePackage)
         // A server declared with `url` rather than `host` fails the context at startup, and only
         // when springwolf is enabled - which everywhere except a deployment, it is not.
-        val kafka = requireNotNull(docket.servers["kafka"]) { "no kafka server is declared" }
+        // springwolf 2.7 relaxed these getters to nullable, so absence and blankness are now two
+        // different failures; both are still failures here.
+        val servers = requireNotNull(docket.servers) { "springwolf.docket.servers is absent" }
+        val kafka = requireNotNull(servers["kafka"]) { "no kafka server is declared" }
         assertEquals("kafka", kafka.protocol)
-        assertTrue(kafka.host.isNotBlank(), "the kafka server must name a host")
+        assertTrue(!kafka.host.isNullOrBlank(), "the kafka server must name a host")
 
         val info = requireNotNull(docket.info) { "springwolf.docket.info is absent" }
-        assertTrue(info.title.isNotBlank())
-        assertTrue(info.version.isNotBlank())
-        assertTrue(info.description.isNotBlank(), "the AsyncAPI document must describe what it documents")
+        assertTrue(!info.title.isNullOrBlank())
+        assertTrue(!info.version.isNullOrBlank())
+        assertTrue(!info.description.isNullOrBlank(), "the AsyncAPI document must describe what it documents")
     }
 
     @Test

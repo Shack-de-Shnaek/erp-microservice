@@ -4,6 +4,7 @@ import finki.ukim.erp.orders.dto.InvoiceLineItemRequest
 import finki.ukim.erp.orders.dto.OrderItemRequest
 import finki.ukim.erp.orders.exceptions.InsufficientStockException
 import finki.ukim.erp.orders.exceptions.InvalidOrderStateException
+import finki.ukim.erp.orders.handlers.StockLifecycleEventHandler
 import finki.ukim.erp.orders.services.OrderCommandService
 import finki.ukim.erp.orders.services.OrderViewReadService
 import finki.ukim.erp.orders.services.TransactionViewReadService
@@ -45,6 +46,15 @@ class OrderFlowIntegrationTest {
     @Autowired
     private lateinit var eventStore: EventStore
 
+    /**
+     * The only way an order is approved: inventory confirms its goods out of the warehouse, which
+     * arrives as `stock.confirmed` and is dispatched from here. The tests call the handler directly
+     * rather than going through Kafka - what the broker adds is delivery, which KafkaEndToEndTest
+     * covers, and this way each test still moves the order the way production does.
+     */
+    @Autowired
+    private lateinit var stockLifecycleEventHandler: StockLifecycleEventHandler
+
     private fun placeOrder(): OrderView = orderCommandService.createOrder(
         name = "John",
         surname = "Doe",
@@ -80,10 +90,10 @@ class OrderFlowIntegrationTest {
     }
 
     @Test
-    fun `the full approve, pay, invoice and reverse flow lands in the database`() {
+    fun `the full confirm, pay, invoice and reverse flow lands in the database`() {
         val order = placeOrder()
 
-        orderCommandService.approveOrder(order.id)
+        stockLifecycleEventHandler.onStockConfirmed(order.id)
         val payment = orderCommandService.registerPayment(order.id, BigDecimal("39.98"), PaymentType.CARD)
         assertEquals(Money(BigDecimal("39.98")), payment.amount)
 
@@ -111,7 +121,7 @@ class OrderFlowIntegrationTest {
     @Test
     fun `correcting invoice line items leaves the order's own items alone`() {
         val order = placeOrder()
-        orderCommandService.approveOrder(order.id)
+        stockLifecycleEventHandler.onStockConfirmed(order.id)
         orderCommandService.registerPayment(order.id, BigDecimal("39.98"), PaymentType.CARD)
         val invoice = orderCommandService.generateInvoice(order.id, embg = "1234567890123")
 
@@ -131,7 +141,7 @@ class OrderFlowIntegrationTest {
     @Test
     fun `an invoiced order can no longer be edited`() {
         val order = placeOrder()
-        orderCommandService.approveOrder(order.id)
+        stockLifecycleEventHandler.onStockConfirmed(order.id)
         orderCommandService.registerPayment(order.id, BigDecimal("39.98"), PaymentType.CARD)
         orderCommandService.generateInvoice(order.id, embg = "1234567890123")
 
@@ -144,7 +154,7 @@ class OrderFlowIntegrationTest {
     fun `orders can be listed by status`() {
         val first = placeOrder()
         val second = placeOrder()
-        orderCommandService.approveOrder(second.id)
+        stockLifecycleEventHandler.onStockConfirmed(second.id)
 
         val pending = orderViewReadService.findByStatus(OrderStatus.PENDING).map { it.id }
         val approved = orderViewReadService.findByStatus(OrderStatus.APPROVED).map { it.id }
@@ -157,7 +167,7 @@ class OrderFlowIntegrationTest {
     @Test
     fun `every state change is still appended to the event store, even though state is read from the database`() {
         val order = placeOrder()
-        orderCommandService.approveOrder(order.id)
+        stockLifecycleEventHandler.onStockConfirmed(order.id)
         orderCommandService.registerPayment(order.id, BigDecimal("39.98"), PaymentType.CARD)
         orderCommandService.generateInvoice(order.id, embg = "1234567890123")
 

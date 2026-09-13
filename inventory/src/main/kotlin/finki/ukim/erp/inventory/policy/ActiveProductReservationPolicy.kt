@@ -37,11 +37,11 @@ class InactiveProductReservationException(productId: String, orderRef: String) :
  * (`ProductDeactivatedEventHandler`, in the other service) it lives between them rather than inside
  * either.
  *
- * A dispatch interceptor rather than a check at the call sites, because there are two call sites
- * today - [ReservationController][finki.ukim.erp.inventory.web.ReservationController] and
- * [OrderLifecycleSaga][finki.ukim.erp.inventory.integration.OrderLifecycleSaga] - and a rule that
- * has to be remembered at each of them is one a third caller will not have. Every
- * [ReserveStockCommand] goes over the command bus, so this sees every one of them.
+ * A dispatch interceptor rather than a check at the call sites, because a rule that has to be
+ * remembered at each of them is one the next caller will not remember. Today reservations come in
+ * through [ReservationController][finki.ukim.erp.inventory.web.ReservationController] alone - both
+ * the whole-order `POST` and the per-line work an amendment turns into - but every
+ * [ReserveStockCommand] goes over the command bus whatever sends it, so this sees all of them.
  *
  * ## What it deliberately does not touch
  *
@@ -84,11 +84,12 @@ class InactiveProductReservationException(productId: String, orderRef: String) :
  *
  * ## The race this leaves
  *
- * An order approved just before its product was deactivated can still arrive here afterwards, and
- * will now be refused - leaving an order that orders considers approved with no stock reserved
- * against it. The saga has no compensation for a refused reservation, so this is not new: the same
- * thing already happens when the stock has run out between approval and this command. Narrowing it
- * belongs with the saga, not here.
+ * A reservation dispatched just before its product was deactivated can still arrive here
+ * afterwards and be refused. Placing an order takes that refusal well - the reservation is
+ * synchronous, so orders is told "no" and never creates the order at all. An *amendment* is the
+ * awkward case: a line raised on a product withdrawn a moment earlier is refused, and the order
+ * stands on the lines it had. That is the same answer it would get a moment later, so nothing is
+ * left inconsistent; the customer is simply told to try again with the withdrawn product taken off.
  */
 @Component
 class ActiveProductReservationPolicy(

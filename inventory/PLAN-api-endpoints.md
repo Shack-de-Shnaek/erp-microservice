@@ -192,7 +192,7 @@ The orders service consumes these endpoints and events:
 | Confirm stock | `POST /api/reservations/{orderRef}/confirm` | On delivery/fulfillment |
 | Amend a reservation | `PUT /api/reservations/{orderRef}` | When an order's lines are edited |
 | Release stock | `DELETE /api/reservations/{orderRef}` | On order cancellation |
-| Read a reservation | `GET /api/reservations/{orderRef}` | Before approving or invoicing, to check the hold still stands |
+| Read a reservation | `GET /api/reservations/{orderRef}` | Before invoicing, to check the hold still stands |
 
 ### Kafka Events (asynchronous)
 
@@ -210,12 +210,13 @@ published because they are facts about the ledger, not because somebody asked fo
 | Stock reservation released | `stock.reservation.released` | **Yes** — a hold orders did not ask to drop means the order is no longer backed |
 | Stock returned | `stock.returned` | **Yes** — same handler; confirmed goods coming back ends the order the same way |
 | Stock confirmed | `stock.confirmed` | **Yes** — the goods left the shelf, so a pending order is approved |
-| Stock adjusted | `stock.adjusted` | No — orders re-checks its reservation at approval and invoicing |
+| Stock adjusted | `stock.adjusted` | No — orders re-checks its reservation when it invoices |
 
 The reverse direction is one topic. Orders publishes `order.nullified` — cancelled, rejected or
 refunded, in the same words — and inventory's `OrderLifecycleSaga` releases whatever it is holding
 for that order. There is deliberately no reservation on `order.approved`: stock is taken
-synchronously when the order is placed, so by approval time the goods are already aside.
+synchronously when the order is placed, and `order.approved` is what comes *back* once this service
+confirms it out — our own decision echoed, with nothing left to act on.
 
 ---
 

@@ -9,9 +9,14 @@ import org.axonframework.modelling.command.Repository
 import org.springframework.stereotype.Component
 
 /**
- * The second point where the goods behind the order have to be confirmed before it moves on -
- * invoicing is what bills for them - and so, like [ApproveOrderCommandHandler], it is handled
- * outside the aggregate, and against the reservation rather than against free stock.
+ * The one point where the goods behind the order have to be confirmed before it moves on -
+ * invoicing is what bills for them - and so it is handled outside the aggregate, and against the
+ * reservation rather than against free stock. An aggregate that reached for the inventory service
+ * would no longer be a pure function of its own state, which is why this handler exists at all.
+ *
+ * Approval used to be the other such point. It no longer is: an order is approved by inventory
+ * confirming its goods out, and that message is its own proof - see
+ * [finki.ukim.erp.orders.handlers.StockLifecycleEventHandler].
  *
  * The invoice id and invoice number are still minted by
  * [finki.ukim.erp.orders.services.OrderCommandService] and carried on the command: they are

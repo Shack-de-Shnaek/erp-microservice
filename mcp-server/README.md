@@ -44,7 +44,7 @@ second. `catalog` joins them and says `available` and `orderable` outright.
 |---|---|---|
 | `create_order` | Place an order; lines are validated and priced against inventory | — |
 | `update_order_items` | Replace an order's lines wholesale and reprice them | — |
-| `approve_order` | Approve a pending order, committing the stock behind it | ADMIN |
+| `confirm_reservation` | Confirm an order's stock out of the warehouse — the only thing that approves an order. Calls inventory, not orders | — |
 | `reject_order` | Reject a pending order | ADMIN |
 | `cancel_order` | Withdraw a pending or approved order, releasing its reservations | own order |
 | `register_payment` | Record money received against an approved order | — |
@@ -104,7 +104,7 @@ also forces one retry with a fresh token, which covers a token invalidated early
 reimport, a revoked service account. A 401 that survives the retry is reported as a real
 authorization failure rather than retried in a loop.
 
-> **On the write tools.** A tool that can `POST /api/orders` or approve one is reachable by
+> **On the write tools.** A tool that can `POST /api/orders` or confirm its stock out is reachable by
 > anything that can put text in front of the model on the other end. Set `ERP_ENABLE_WRITES=false`
 > wherever that conversation is not trusted: the write tools are then not registered at all, so
 > they do not appear in the catalogue and cannot be called.
@@ -258,10 +258,15 @@ Add to `opencode.jsonc` in the project root (already configured):
    transport error. `--write` adds a round trip that places an order against a product that
    actually has stock and cancels it again - nothing that cannot be undone - and that is where
    `catalog` is exercised, since it is what picks the product to order.
-2. **Full lifecycle**, by hand against the running stack: create → update items → approve →
-   invoice → get invoice → reverse, plus the refusals (`register_payment` on a pending order,
-   `reject_order` on one already approved), confirming both that every gateway route resolves and
-   that the aggregate's own error messages reach the caller intact.
+2. **Full lifecycle**, by hand against the running stack: create → update items →
+   confirm reservation (which is what moves it to APPROVED) → pay in full → invoice → get invoice →
+   reverse, plus the refusals (`register_payment` on a pending order, `reject_order` on one already
+   approved), confirming both that every gateway route resolves and that the aggregate's own error
+   messages reach the caller intact.
+
+   The order reaches `APPROVED` a moment after `confirm_reservation` returns, not during the call:
+   inventory confirms the stock, orders hears about it on `stock.confirmed`, and only then does the
+   status move. A `get_order` fired immediately after may still read `PENDING`.
 3. **Containerised**: `docker compose up -d mcp-server`, then an MCP client against
    `http://localhost:8765/mcp` - verifying the service-account token is obtained over the Docker
    network and accepted by the gateway.

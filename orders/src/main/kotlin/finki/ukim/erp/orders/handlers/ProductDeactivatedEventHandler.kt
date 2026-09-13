@@ -12,8 +12,9 @@ import org.springframework.stereotype.Component
  * What this service does when another service withdraws a product.
  *
  * Every order still *waiting* to be approved that asks for that product has become unfulfillable,
- * so those orders are rejected. It is the same outcome they would get the moment anyone tried to
- * approve them - the difference is that the customer finds out now instead of after waiting.
+ * so those orders are rejected. Left alone they would wait forever: an order is approved by
+ * inventory confirming its goods out, and nobody is going to pick a withdrawn product off the shelf
+ * for it. Rejecting now is the same ending, reached without the wait.
  *
  * The rule cannot live in either aggregate. Inventory's product has no idea orders exist; an
  * `Order` cannot notice something that happened in another service and another database. It belongs

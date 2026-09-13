@@ -11,7 +11,7 @@
     "realm": [
       {
         "name": "ADMIN",
-        "description": "May approve and reject orders. Maps to ROLE_ADMIN via the realm_access.roles claim."
+        "description": "May reject orders and manage the catalogue and its stock. Maps to ROLE_ADMIN via the realm_access.roles claim."
       },
       {
         "name": "CUSTOMER",
@@ -19,7 +19,7 @@
       },
       {
         "name": "SERVICE",
-        "description": "A service acting on its own behalf rather than a user's. Held by service accounts only, and what inventory's reservation and stock-reserve endpoints accept from a caller with no customer behind it - an order released because a Kafka event withdrew the product."
+        "description": "A service acting on its own behalf rather than a user's. Held by service accounts only; what inventory's reservation and stock-reserve endpoints accept from a caller with no customer behind it."
       }
     ]
   },
@@ -92,7 +92,7 @@
     {
       "clientId": "erp-mcp",
       "name": "MCP server (service account)",
-      "description": "Confidential client for the MCP server. Service accounts only: it has no user behind it, so it takes a token with the client-credentials grant and never a login. Its own account holds ADMIN and CUSTOMER, which is what lets the write tools approve an order and place one.",
+      "description": "Confidential client for the MCP server. Service accounts only: no user behind it, so it uses the client-credentials grant and never a login. Its account holds ADMIN and CUSTOMER, which is what lets the write tools place an order.",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -104,7 +104,7 @@
     {
       "clientId": "erp-orders",
       "name": "Orders service (service account)",
-      "description": "Confidential client for the orders service, used only when it calls inventory with no user behind the call - a Kafka event withdrawing a product makes it release the holds on the orders that wanted it, and there is no request to relay a token from. Its account holds SERVICE and nothing else: it can take and give back stock, and cannot touch the catalogue. A call that *does* have a user behind it relays that user's own token instead, so this identity never stands in for a customer.",
+      "description": "Confidential client for the orders service, used only when it calls inventory with no user behind the call and so no token to relay. Its account holds SERVICE and nothing else: it can take and give back stock, and cannot touch the catalogue.",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,

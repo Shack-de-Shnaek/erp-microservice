@@ -1,6 +1,5 @@
 package finki.ukim.erp.orders
 
-import finki.ukim.erp.orders.commands.ApproveOrderCommand
 import finki.ukim.erp.orders.commands.ApproveOrderForConfirmedStockCommand
 import finki.ukim.erp.orders.commands.CancelOrderCommand
 import finki.ukim.erp.orders.commands.CreateOrderCommand
@@ -68,11 +67,14 @@ import java.time.LocalDateTime
  * to move this object's state, then `apply(event)` to publish it. The state change and the
  * announcement of it are separate acts, and both are explicit.
  *
- * Two commands are deliberately *not* handled here - [ApproveOrderCommand] and
- * [GenerateInvoiceCommand] both need the inventory service to confirm stock first, and an
- * aggregate has no business holding a client to another service. They arrive through the external
- * handlers in [finki.ukim.erp.orders.handlers], which call [approve] and [generateInvoice] once
- * stock is confirmed. The rules about *when* those are allowed still live here.
+ * One command is deliberately *not* handled here: [GenerateInvoiceCommand] needs the inventory
+ * service to confirm the goods are still held, and an aggregate has no business holding a client
+ * to another service. It arrives through the external handler in
+ * [finki.ukim.erp.orders.handlers], which calls [generateInvoice] once the hold is verified. The
+ * rule about *when* it is allowed still lives here.
+ *
+ * Approval has no command handler here at all, because approval is not this service's decision to
+ * make - see [approveForConfirmedStock].
  *
  * ("orders", not "order": the latter is a reserved word in both Postgres and H2.)
  */
@@ -150,22 +152,6 @@ open class Order(
         apply(event)
     }
 
-    /**
-     * Not a `@CommandHandler`: approval re-checks stock first, so
-     * [finki.ukim.erp.orders.handlers.ApproveOrderCommandHandler] owns the command and calls this
-     * once inventory has confirmed. The rule about which orders may be approved stays here, with
-     * the state it judges.
-     */
-    fun approve(command: ApproveOrderCommand) {
-        if (status != OrderStatus.PENDING) {
-            throw InvalidOrderStateException("Only a pending order can be approved")
-        }
-
-        val event = OrderApprovedEvent(command, orderItems)
-        on(event)
-        apply(event)
-    }
-
     @CommandHandler
     fun reject(command: RejectOrderCommand) {
         if (status != OrderStatus.PENDING) {
@@ -178,12 +164,13 @@ open class Order(
     }
 
     /**
-     * Approves an order whose stock inventory has confirmed out.
+     * Approves an order whose stock inventory has confirmed out. The only way an order is approved.
      *
-     * A `@CommandHandler` where ordinary [approve] is not, and for the reason that keeps approval
-     * out of the aggregate in the first place: that path has to ask inventory whether the hold
-     * still stands, and an aggregate may not reach outside itself. This one needs no such question.
-     * Inventory has already committed the goods and is telling us so; the message is the proof.
+     * A plain `@CommandHandler`, and it can be one precisely because nothing outside the order has
+     * to be asked: inventory has already committed the goods and is telling us so, and the message
+     * is the proof. An approval this service granted on its own would have to go and check that the
+     * hold still stood, which is the kind of question an aggregate may not ask - which is why there
+     * is no such approval any more.
      *
      * An order that is not pending is left alone rather than refused. This is driven by a Kafka
      * message, which can be redelivered, and the second delivery finds the order already approved -
@@ -291,7 +278,12 @@ open class Order(
         apply(event)
     }
 
-    /** Not a `@CommandHandler`; see [approve]. */
+    /**
+     * Not a `@CommandHandler`: invoicing re-checks that inventory is still holding the order's
+     * goods first, so [finki.ukim.erp.orders.handlers.GenerateInvoiceCommandHandler] owns the
+     * command and calls this once the hold is confirmed. The rules about which orders may be
+     * invoiced stay here, with the state they judge.
+     */
     fun generateInvoice(command: GenerateInvoiceCommand) {
         if (status != OrderStatus.APPROVED) {
             throw InvalidOrderStateException("Only an approved order can be invoiced")

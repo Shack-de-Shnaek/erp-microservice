@@ -1,3 +1,7 @@
-mcp>=1.0.0,<2.0.0
-httpx>=0.27.0
-pydantic>=2.0.0
+# mcp is held below 2.0 deliberately. server.py is written against the v1 API - FastMCP, from
+# mcp.server.fastmcp - and 2.x renamed it to MCPServer under mcp.server.mcpserver along with other
+# breaking changes, so 2.x does not import here at all. Moving up is a rewrite of server.py, not a
+# version bump. 1.30.0 is the newest of the 1.x line.
+mcp>=1.30.0,<2.0.0
+httpx>=0.28.1
+pydantic>=2.13.5

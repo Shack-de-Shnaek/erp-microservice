@@ -2,7 +2,7 @@ package finki.ukim.erp.orders
 
 import finki.ukim.erp.orders.clients.FakeInventoryCatalog
 import finki.ukim.erp.orders.clients.InventoryProduct
-import finki.ukim.erp.orders.commands.ApproveOrderCommand
+import finki.ukim.erp.orders.commands.ApproveOrderForConfirmedStockCommand
 import finki.ukim.erp.orders.commands.CancelOrderCommand
 import finki.ukim.erp.orders.commands.CreateOrderCommand
 import finki.ukim.erp.orders.commands.GenerateInvoiceCommand
@@ -32,7 +32,6 @@ import finki.ukim.erp.orders.exceptions.InvoiceAlreadyReversedException
 import finki.ukim.erp.orders.exceptions.InvoiceNotFoundException
 import finki.ukim.erp.orders.exceptions.OrderNotOwnedException
 import finki.ukim.erp.orders.exceptions.OverpaymentException
-import finki.ukim.erp.orders.handlers.ApproveOrderCommandHandler
 import finki.ukim.erp.orders.handlers.GenerateInvoiceCommandHandler
 import org.axonframework.test.aggregate.AggregateTestFixture
 import org.axonframework.test.aggregate.FixtureConfiguration
@@ -68,18 +67,17 @@ class OrderAggregateTest {
         // the clock.
         fixture.registerFieldFilter { field -> field.name != "occurredAt" }
 
-        // Approval and invoicing are handled outside the aggregate, so the fixture has to be told
-        // about those handlers or their commands would have nowhere to go. They get a catalog
-        // that always has stock: what is under test here is the aggregate's rules about *when*
-        // those commands are allowed. The stock check itself is covered by StockRecheckTest.
-        fixture.registerAnnotatedCommandHandler(ApproveOrderCommandHandler(fixture.repository, alwaysInStock))
+        // Invoicing is handled outside the aggregate, so the fixture has to be told about that
+        // handler or its command would have nowhere to go. It gets a catalog that always has
+        // stock: what is under test here is the aggregate's rule about *when* invoicing is
+        // allowed. The stock check itself is covered by StockRecheckTest.
         fixture.registerAnnotatedCommandHandler(GenerateInvoiceCommandHandler(fixture.repository, alwaysInStock))
     }
 
     /**
-     * Stock is never the reason a command fails here, so the fake is handed the reservation these
-     * handlers now check for before each one runs. What is under test is the aggregate's rules
-     * about *when* approval and invoicing are allowed; the stock half is StockRecheckTest's.
+     * Stock is never the reason a command fails here, so the fake is handed the reservation the
+     * invoice handler now checks for before each test runs. What is under test is the aggregate's
+     * rule about *when* invoicing is allowed; the stock half is StockRecheckTest's.
      */
     private val alwaysInStock = FakeInventoryCatalog().apply {
         reservations[orderId.value] = mapOf(ProductId("product-1") to Quantity(Int.MAX_VALUE))
@@ -251,17 +249,31 @@ class OrderAggregateTest {
     // ------------------------------------------------------------------ lifecycle
 
     @Test
-    fun `approving moves a pending order to approved`() {
+    fun `stock confirmed by inventory moves a pending order to approved`() {
         fixture.givenState { orderWith(defaultOrderCreated()) }
-            .`when`(ApproveOrderCommand(orderId))
+            .`when`(ApproveOrderForConfirmedStockCommand(orderId))
             .expectEvents(approved())
     }
 
+    /**
+     * Not an exception, on purpose. This command is driven by a Kafka message, which can be
+     * redelivered; the second delivery finds the order already in the state the message was asking
+     * for, and there is nothing to complain about - but nothing to announce twice either.
+     */
     @Test
-    fun `only a pending order can be approved`() {
+    fun `an order that is no longer pending absorbs a repeated stock confirmation`() {
         fixture.givenState { orderWith(defaultOrderCreated(), approved()) }
-            .`when`(ApproveOrderCommand(orderId))
-            .expectException(InvalidOrderStateException::class.java)
+            .`when`(ApproveOrderForConfirmedStockCommand(orderId))
+            .expectSuccessfulHandlerExecution()
+            .expectNoEvents()
+    }
+
+    @Test
+    fun `a cancelled order is not approved by a late stock confirmation`() {
+        fixture.givenState { orderWith(defaultOrderCreated(), cancelled(Money.ZERO)) }
+            .`when`(ApproveOrderForConfirmedStockCommand(orderId))
+            .expectSuccessfulHandlerExecution()
+            .expectNoEvents()
     }
 
     @Test

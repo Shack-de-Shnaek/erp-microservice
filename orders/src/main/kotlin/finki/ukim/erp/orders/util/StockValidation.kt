@@ -56,19 +56,24 @@ fun InventoryCatalog.priceItemsForAmendment(
 }
 
 /**
- * What the reservation actually holds, checked at the two points an order moves on: approval and
- * invoicing. Both are driven by the external command handlers in [finki.ukim.erp.orders.handlers],
- * which read the quantities straight off the order they are about to act on.
+ * What the reservation actually holds, checked at the one point an order moves on under this
+ * service's own steam: invoicing. It is driven by the external command handler in
+ * [finki.ukim.erp.orders.handlers], which reads the quantities straight off the order it is about
+ * to act on.
+ *
+ * Approval is not checked here and needs no checking. It arrives from inventory, saying the goods
+ * have already left the shelf - a confirmed hold is no longer a hold, so looking for one would fail
+ * on exactly the orders that are most certainly backed.
  *
  * It asks about the *reservation* rather than about availability, and the difference is not
  * cosmetic. The order's own goods were put aside when it was placed, so they no longer count as
  * available - asking "is there enough free stock for this order" would be asking whether a
  * *second* copy of it could be filled, and an order for the last of something would fail its own
- * approval. What matters here is only whether the hold taken at placement is still there.
+ * invoicing. What matters here is only whether the hold taken at placement is still there.
  *
  * It can be gone: an amendment that could not be re-reserved, a release that ran when it should
  * not have, an inventory database restored from behind. In every one of those the order is no
- * longer backed by goods, and approving or invoicing it would promise what nobody is holding.
+ * longer backed by goods, and billing for it would charge for what nobody is holding.
  */
 fun InventoryCatalog.verifyStockReserved(orderRef: String, quantitiesByProduct: Map<ProductId, Quantity>) {
     val reservation = findReservation(orderRef)

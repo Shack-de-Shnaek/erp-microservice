@@ -20,11 +20,11 @@ why these calls exist.
 
 ### 1.1 - The two dependencies
 
-| | Placing or amending an order | Approving / invoicing an order |
+| | Placing or amending an order | Invoicing an order |
 |---|---|---|
 | **Aggregate** | `Order` | `Order` |
-| **Commands** | `CreateOrderCommand`, `UpdateOrderItemsCommand` | `ApproveOrderCommand`, `GenerateInvoiceCommand` |
-| **Handled in** | `OrderCommandService` (before dispatch) | `ApproveOrderCommandHandler`, `GenerateInvoiceCommandHandler` |
+| **Commands** | `CreateOrderCommand`, `UpdateOrderItemsCommand` | `GenerateInvoiceCommand` |
+| **Handled in** | `OrderCommandService` (before dispatch) | `GenerateInvoiceCommandHandler` |
 | **Question** | Does each product exist, can it cover the quantity, and what does it cost? — then: *hold it* | Is inventory *still* holding what it agreed to hold? |
 | **Endpoint** | `GET /api/products/{id}` + `GET /api/stock/{id}` per line, then one `POST /api/reservations` (or `PUT /api/reservations/{orderRef}` on an amendment) | `GET /api/reservations/{orderRef}`, once |
 | **Response** | A catalogue entry and a stock ledger row, joined here; then the reservation | The reservation, or 404 |
@@ -39,13 +39,13 @@ an event.
 
 The second is *verification that the commitment survived*. An order can sit pending for days. The
 reservation can be gone by then: an amendment that could not be re-reserved, a release that ran when
-it should not have, an inventory database restored from behind. So approval and invoicing ask what
+it should not have, an inventory database restored from behind. So invoicing asks what
 the reservation actually holds.
 
 Note what the second question is **not**: it does not ask whether stock is *available*. The order's
 own goods were put aside when it was placed, so they no longer count as available — asking "is
 there enough free stock for this order" would be asking whether a *second* copy of it could be
-filled, and an order for the last of something would fail its own approval.
+filled, and an order for the last of something would fail its own invoicing.
 
 Pricing is where the boundary is currently unfinished. A price is inventory's to state, and the
 aggregate is not allowed to go and fetch one - see "Why the aggregate never holds a client" below -
@@ -116,7 +116,7 @@ that file, so if either endpoint changes shape, their build fails rather than ou
 once*, inside the command's unit of work. Inventory exposes one product by id and a paged listing of
 the whole catalogue, and neither of those is "these four ids" - so an n-line order costs 2n
 sequential HTTP calls with a database transaction held open across all of them, plus the one
-reservation call at the end. (Approval and invoicing no longer pay this: they ask
+reservation call at the end. (Invoicing no longer pays this: it asks
 `GET /api/reservations/{orderRef}` once, whatever the order's size.) `InventoryResilienceTest`
 asserts that cost rather than hiding it, so the day inventory adds `GET /api/products?ids=` (and the
 same on `/api/stock`) the improvement is visible as that number falling. It is not something orders
@@ -183,23 +183,23 @@ code runs. The GETs need no such thing — they have no body to label.
 The exercise injects the Feign client as a parameter of a `@CommandHandler` on the aggregate. This
 service does something slightly different, for the reason the exercise's own rule exists.
 
-`ApproveOrderCommand` and `GenerateInvoiceCommand` are handled by **external command handlers** -
-plain Spring components that load the aggregate from Axon's repository and call a method on it:
+`GenerateInvoiceCommand` is handled by an **external command handler** - a plain Spring component
+that loads the aggregate from Axon's repository and calls a method on it:
 
 ```kotlin
 @Component
-class ApproveOrderCommandHandler(
+class GenerateInvoiceCommandHandler(
     private val orderRepository: Repository<Order>,
     private val inventoryCatalog: InventoryCatalog
 ) {
     @CommandHandler
-    fun handle(command: ApproveOrderCommand) {
+    fun handle(command: GenerateInvoiceCommand) {
         val order = orderRepository.load(command.orderId.value)
         inventoryCatalog.verifyStockReserved(
             command.orderId.value,
             order.invoke { it.requestedQuantities() }
         )
-        order.execute { it.approve(command) }
+        order.execute { it.generateInvoice(command) }
     }
 }
 ```
@@ -207,13 +207,20 @@ class ApproveOrderCommandHandler(
 The rule the exercise is protecting is "the client must not be a field of the aggregate", and it
 is not: the aggregate has no idea inventory exists. Handling the command in a component instead of
 on the aggregate takes it one step further - the aggregate keeps only the rules it can decide on
-its own (a pending order is the only kind that can be approved), and the check that needs the
-network lives where a network call is an ordinary thing to do. Constructor injection is then the
-natural way to get the dependency, rather than a handler parameter.
+its own (only an approved, fully paid order may be billed), and the check that needs the network
+lives where a network call is an ordinary thing to do. Constructor injection is then the natural
+way to get the dependency, rather than a handler parameter.
 
-The ordering the exercise asks for holds either way: the stock check runs **before** `approve()` is
-called, so a shortfall means no event is applied and the order is untouched. That is asserted in
-`StockRecheckTest` and shown in [6.3](#63---the-other-service-is-down) below.
+The ordering the exercise asks for holds either way: the stock check runs **before**
+`generateInvoice()` is called, so a shortfall means no event is applied and the order is untouched.
+That is asserted in `StockRecheckTest` and shown in [6.3](#63---the-other-service-is-down) below.
+
+Approval used to be the second such handler and no longer is. An order is now approved only by
+inventory confirming its goods out of the warehouse - `stock.confirmed` arrives on Kafka and
+`StockLifecycleEventHandler` dispatches `ApproveOrderForConfirmedStockCommand`, which the aggregate
+handles by itself. There is nothing to ask inventory: the message *is* the answer, and asking again
+would only produce a second one that could disagree with it. There is no endpoint that approves an
+order.
 
 ### Typed exceptions, one per failure
 
@@ -423,18 +430,18 @@ Meanwhile the service is entirely healthy for anything that does not need invent
 GET /orders/all  status=200  total=0.024978s
 ```
 
-The second dependency behaves the same way. Approving an order with inventory down:
+The second dependency behaves the same way. Invoicing an order with inventory down:
 
 ```
-approve with inventory down  status=503  total=0.011056s
+invoice with inventory down  status=503  total=0.011056s
 {"status":503,"message":"The inventory service is currently unavailable"}
 
 $ curl http://localhost:8090/orders/Order:abc986c2-...
-Order:abc986c2-fc5f-456a-b0a9-2edebcbaa818 PENDING
+Order:abc986c2-fc5f-456a-b0a9-2edebcbaa818 APPROVED  (no invoice)
 ```
 
-Still `PENDING` - the validation failed before `approve()` was reached, so no event was applied and
-nothing about the order changed.
+Still uninvoiced - the validation failed before `generateInvoice()` was reached, so no event was
+applied and nothing about the order changed.
 
 **Recovery.** Inventory restarted, and after the breaker's 10s open window:
 

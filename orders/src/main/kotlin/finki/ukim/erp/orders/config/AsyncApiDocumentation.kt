@@ -54,7 +54,8 @@ class AsyncApiDocumentation : AsyncApiCustomizer {
         Publication(
             OrderApprovedEvent::class.java,
             OrderApprovedExternalEvent::class.java,
-            "An order was approved. This is the point goods are committed - reserve against these lines."
+            "An order was approved: inventory confirmed its goods out of the warehouse and the " +
+                "order moved to match. The goods are already gone - nothing needs reserving here."
         ),
         Publication(
             OrderCancelledEvent::class.java,

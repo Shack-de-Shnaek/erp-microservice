@@ -35,9 +35,9 @@ class MockInventoryCatalog : InventoryCatalog {
     /**
      * Reservations are remembered, not merely accepted.
      *
-     * A mock that said yes to everything and forgot would make the two checks that read a
-     * reservation back - at approval and at invoicing - pass for orders that never reserved
-     * anything, which is exactly the failure this profile exists to let someone rehearse. It does
+     * A mock that said yes to everything and forgot would make the check that reads a reservation
+     * back - at invoicing - pass for orders that never reserved anything, which is exactly the
+     * failure this profile exists to let someone rehearse. It does
      * not, however, decrement anything: the point of the profile is to run without inventory, not
      * to reimplement it.
      */

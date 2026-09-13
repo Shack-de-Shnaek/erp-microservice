@@ -36,7 +36,7 @@ a revoked service account).
 
 The write tools are registered only when ERP_ENABLE_WRITES is true, which is the default. Setting
 it to false leaves the read tools in place and removes the others from the catalogue entirely, so a
-model pointed at this server cannot approve an order it merely hallucinated a reason for. Worth
+model pointed at this server cannot place or void an order it merely hallucinated a reason for. Worth
 doing wherever the conversation on the other end is not trusted: a tool that can `POST /api/orders`
 is reachable by anything that can put text in front of the model.
 
@@ -653,16 +653,22 @@ if ENABLE_WRITES:
         )
 
     @mcp.tool()
-    async def approve_order(order_id: str) -> str:
-        """Approve a pending order, committing the stock behind it.
+    async def confirm_reservation(order_id: str) -> str:
+        """Confirm an order's stock out of the warehouse, which is what approves the order.
 
-        Re-checks that the stock the order was accepted on is still there, then announces
-        order.approved so inventory can commit the goods. Requires the ADMIN role.
+        The goods leave the shelf: inventory drops the hold, subtracts the quantity from what is
+        on hand, and announces stock.confirmed - which the orders service reads and uses to move
+        the order to APPROVED. There is no way to approve an order directly; approval means the
+        goods have actually gone, and only inventory knows that.
+
+        The order reaches APPROVED a moment later, once the event has been delivered, so a
+        get_order straight after this may still say PENDING.
 
         Args:
-            order_id: The order id, e.g. "Order:9f1c...".
+            order_id: The order id, which is also the reservation's order reference,
+                e.g. "Order:9f1c...".
         """
-        return await _run("POST", f"/api/orders/{order_id}/approve")
+        return await _run("POST", f"/api/inventory/reservations/{order_id}/confirm")
 
     @mcp.tool()
     async def reject_order(order_id: str) -> str:

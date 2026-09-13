@@ -42,7 +42,8 @@ collected. A rule can only be enforced against state that changes together.
 **Incoming — Inventory → Orders.** Orders depends on inventory for two things: what a product costs
 when a line is added, and whether there is enough of it to go ahead. It also reacts to
 `ProductDeactivatedEvent`: an order still waiting for approval that asks for a withdrawn product
-can never be fulfilled, so it is rejected now rather than at approval time (Part 5).
+can never be fulfilled — nobody will pick it off the shelf, so it would wait forever — and is
+rejected now rather than left pending (Part 5).
 
 **Outgoing — Orders → Inventory.** Stock is *taken* synchronously, when the order is placed
 (`POST /api/reservations`), because the customer is told there and then whether the order stands.
@@ -135,17 +136,24 @@ Update commands (each with `@TargetAggregateIdentifier`): `UpdateOrderItemsComma
 lifecycle commands below.
 
 Lifecycle: `OrderStatus` is `PENDING → APPROVED | REJECTED | CANCELLED`, driven by
-`ApproveOrderCommand`, `RejectOrderCommand` and `CancelOrderCommand`, each guarded against an
-invalid transition (only a pending order can be approved or rejected; only a pending or approved
-order can be cancelled, and only by the customer who placed it).
+`RejectOrderCommand` and `CancelOrderCommand`, each guarded against an invalid transition (only a
+pending order can be rejected; only a pending or approved order can be cancelled, and only by the
+customer who placed it).
 
-Two more lifecycle commands exist for the moves inventory causes rather than a person:
-`ApproveOrderForConfirmedStockCommand` (the goods left the shelf, so the order is committed) and
-`RejectOrderForWithdrawnStockCommand` (the goods are gone, so it cannot be). Both are driven by
-Kafka messages, which can be redelivered, so both treat an order that has already moved as a no-op
-rather than an error - the second delivery finds the world as the first one asked for it. The
-withdrawal command refuses one case loudly: an order with money against it is never closed this
-way, because rejection moves no money and doing so would strand a customer's payment.
+Approval is not among them, and that is the one deliberate asymmetry in the lifecycle. There is no
+command a person can send that approves an order: approval means the goods behind the order have
+actually left the warehouse, and only inventory knows that. It arrives as
+`ApproveOrderForConfirmedStockCommand`, dispatched by `StockLifecycleEventHandler` off
+`stock.confirmed`. An approval this service granted on its own would be a promise made against a
+hold inventory could release the next moment — and it would have to go and ask whether that hold
+still stood, which is a question an aggregate may not ask.
+
+The other command inventory causes rather than a person is `RejectOrderForWithdrawnStockCommand`
+(the goods are gone, so the order cannot stand). Both are driven by Kafka messages, which can be
+redelivered, so both treat an order that has already moved as a no-op rather than an error - the
+second delivery finds the world as the first one asked for it. The withdrawal command refuses one
+case loudly: an order with money against it is never closed this way, because rejection moves no
+money and doing so would strand a customer's payment.
 
 `Order` is a **state-stored** aggregate: `@Aggregate(repository = "axonOrderRepository")` with
 `@Entity`, loaded by the `GenericJpaRepository` in `AxonRepositoriesConfiguration` whose
@@ -153,13 +161,16 @@ way, because rejection moves no money and doing so would strand a customer's pay
 Every handler follows the same three steps — build the event, `on(event)` to move state,
 `apply(event)` to publish it.
 
-Two of them are not `@CommandHandler`s on the aggregate at all. `approve` and `generateInvoice` are
-plain methods called by external handlers (`ApproveOrderCommandHandler`,
-`GenerateInvoiceCommandHandler`), because both have to ask inventory whether the order's
-reservation still stands before the order may move, and an aggregate may not reach outside itself.
-The rule about *which* orders may be approved stays on the aggregate, with the state it judges; only
-the question that needs the network sits outside. See
+One of them is not a `@CommandHandler` on the aggregate at all. `generateInvoice` is a plain method
+called by an external handler (`GenerateInvoiceCommandHandler`), because billing has to ask
+inventory whether the order's reservation still stands before the order may move, and an aggregate
+may not reach outside itself. The rule about *which* orders may be billed stays on the aggregate,
+with the state it judges; only the question that needs the network sits outside. See
 [cross-service-calls.md](cross-service-calls.md).
+
+Approval needs no such handler. It arrives *from* inventory, saying the goods have already gone —
+there is nothing left to verify, and verifying it would fail, because a confirmed hold is no longer
+a hold. So `approveForConfirmedStock` is an ordinary `@CommandHandler` like the rest.
 
 ### After three update commands and one status command, how many rows are in `DOMAIN_EVENT_ENTRY`?
 
@@ -241,8 +252,9 @@ projection, not another view.
 
 Inventory publishes `ProductDeactivatedEvent` when a product is withdrawn from sale. Every order
 still **pending** that has a line for that product has become unfulfillable, so orders rejects them.
-That is the same outcome they would get the moment anyone tried to approve them — the difference is
-that the customer finds out now instead of after waiting.
+That is the ending they were headed for anyway — a withdrawn product is never confirmed out of the
+warehouse, and an order that is never confirmed is never approved — so the difference is only that
+the customer finds out now instead of waiting for an approval that was never coming.
 
 This cannot live in either aggregate. Inventory's product has no idea orders exist, and would be
 reaching across a service boundary and a database boundary to find out. An `Order` cannot notice
@@ -269,12 +281,13 @@ the anti-corruption layer diagram below.
 the *end* of an order rather than its approval: cancelled, rejected or refunded, orders says all
 three in the same words, and inventory releases whatever it is holding for that order.
 
-Approval is not the moment stock is committed, and used not to be otherwise only for a while. Stock
-is taken when the order is **placed**, synchronously over `POST /api/reservations`, because the
-customer is told there and then whether the order stands — a promise of goods must not rest on a
-message still in flight. By approval time the goods are already aside, so `order.approved` is
-published for anyone following the life of an order and nothing subscribes to it to reserve
-anything.
+Approval is not the moment stock is committed; the traffic runs the other way. Stock is taken when
+the order is **placed**, synchronously over `POST /api/reservations`, because the customer is told
+there and then whether the order stands — a promise of goods must not rest on a message still in
+flight. It is *confirmed* out of the warehouse later, on inventory's side, and that confirmation is
+what approves the order. So `order.approved` is published for anyone following the life of an order,
+and nothing subscribes to it to reserve anything: by the time it is sent, the goods have already
+gone.
 
 Inventory's side of the release is `OrderLifecycleSaga`, and it releases against *its own*
 reservation record rather than the lines on the event — an order edited after approval, or one

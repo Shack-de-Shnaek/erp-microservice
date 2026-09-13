@@ -36,7 +36,24 @@ class StockItem {
     @AttributeOverride(name = "value", column = Column(name = "reorder_threshold_value"))
     var reorderThreshold: ReorderThreshold? = null
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    /**
+     * What each order is holding but has not yet taken.
+     *
+     * Fetched lazily, and it has to be. Axon's `GenericJpaRepository` loads this aggregate with
+     * `PESSIMISTIC_WRITE`, and an eager @ElementCollection makes that load an outer join, which no
+     * dialect can render `FOR UPDATE` directly. Hibernate 7 therefore falls back to follow-on
+     * locking - a second statement that locks the rows it has just read - and that path is simply
+     * not implemented for an entity whose key is an @EmbeddedId, as this one's is. Every command
+     * that touched a stock item died on `UnsupportedOperationException: Not implemented yet` from
+     * deep inside Hibernate. Loading the collections lazily keeps the aggregate's own row the only
+     * thing in the locking select, so the lock is taken inline and follow-on locking never starts.
+     *
+     * Nothing is given up by it. The aggregate is only ever loaded inside Axon's unit of work,
+     * which is a transaction, so the ledgers initialise on first touch with the session still
+     * open; and the row lock on the stock item is what actually serialises two concurrent commands
+     * against it, not the locks on the ledger tables.
+     */
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(
         name = "stock_item_reservations",
         joinColumns = [JoinColumn(name = "stock_item_id")],
@@ -55,8 +72,10 @@ class StockItem {
      * So a hold moves between the two ledgers rather than disappearing: reserved while it is a
      * claim on stock that has not moved, confirmed once the goods have gone. An order appears in
      * at most one of them.
+     *
+     * Lazy for the same reason as [reservationLedger] above.
      */
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(
         name = "stock_item_confirmations",
         joinColumns = [JoinColumn(name = "stock_item_id")],

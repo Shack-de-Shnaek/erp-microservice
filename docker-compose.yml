@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:18-alpine
     container_name: postgres
     restart: unless-stopped
     environment:
@@ -10,7 +10,11 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # Mounted at /var/lib/postgresql, not at .../data. From 18 these images keep the cluster in a
+      # major-version-specific subdirectory (/var/lib/postgresql/18/docker) so that pg_upgrade can
+      # see the old and new cluster under one mount; a volume still mounted on .../data is
+      # detected as a stray pre-18 cluster and the container refuses to start.
+      - postgres_data:/var/lib/postgresql
       - ./docker-db/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U inventory -d inventory"]
@@ -21,7 +25,7 @@ services:
       - app-network
 
   broker:
-    image: confluentinc/cp-kafka:7.5.0
+    image: confluentinc/cp-kafka:8.3.1
     container_name: broker
     restart: unless-stopped
     ports:
@@ -51,15 +55,21 @@ services:
     volumes:
       - kafka_data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 9092 || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      # cp-kafka 8.x ships no nc (nor curl), so the old `nc -z` port probe fails the container
+      # rather than the broker. This asks the broker over its own protocol instead, which is the
+      # stronger check anyway: a bound port says the process is listening, an answered
+      # ApiVersions request says it is actually serving. It pays for a JVM start each time, hence
+      # the longer interval and timeout.
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 20s
     networks:
       - app-network
 
   consul:
-    image: hashicorp/consul:latest
+    image: hashicorp/consul:2.0.4
     container_name: consul
     restart: unless-stopped
     ports:
@@ -73,7 +83,7 @@ services:
       - app-network
 
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0.0
+    image: quay.io/keycloak/keycloak:26.7.3
     container_name: keycloak
     restart: on-failure
     # --import-realm reads /opt/keycloak/data/import on startup and creates the realm if it is
@@ -81,8 +91,11 @@ services:
     # first boot has no effect until the realm is deleted (or the postgres volume is dropped).
     command: start-dev --import-realm
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      # Renamed in Keycloak 25: the old KEYCLOAK_ADMIN/KEYCLOAK_ADMIN_PASSWORD pair still works but
+      # is deprecated, and these are the names that survive. They only seed the first admin on an
+      # empty database; once the keycloak database has a user, they are ignored.
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
       KC_DB_USERNAME: keycloak
@@ -92,12 +105,15 @@ services:
       # on localhost:8080 gets tokens issued by http://localhost:8080/realms/erp, the gateway
       # exchanging the code over the Docker network gets http://keycloak:8080/realms/erp, and the
       # id token is then rejected for an issuer mismatch.
-      KC_HOSTNAME: localhost
-      KC_HOSTNAME_PORT: 8080
-      KC_HOSTNAME_STRICT: "false"
-      # ...while backchannel calls (token exchange, JWKS) still go to keycloak:8080 from inside
-      # the network and are answered under that same pinned issuer.
-      KC_HOSTNAME_STRICT_BACKCHANNEL: "false"
+      #
+      # Keycloak 26 takes this as a full URL and dropped KC_HOSTNAME_PORT, which used to carry the
+      # port separately; the scheme and port now live in this one value.
+      KC_HOSTNAME: http://localhost:8080
+      # ...while backchannel calls (token exchange, JWKS) still go to keycloak:8080 from inside the
+      # network and are answered under that same pinned issuer. That is what this setting means in
+      # Keycloak 26: left false, backchannel requests are served under the fixed hostname above
+      # rather than under whatever host they arrived on. It replaces KC_HOSTNAME_STRICT_BACKCHANNEL.
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "false"
     ports:
       - "8080:8080"
     volumes:

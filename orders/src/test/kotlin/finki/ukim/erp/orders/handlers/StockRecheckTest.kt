@@ -12,7 +12,6 @@ import finki.ukim.erp.orders.ProductId
 import finki.ukim.erp.orders.Quantity
 import finki.ukim.erp.orders.TransactionId
 import finki.ukim.erp.orders.clients.FakeInventoryCatalog
-import finki.ukim.erp.orders.commands.ApproveOrderCommand
 import finki.ukim.erp.orders.commands.GenerateInvoiceCommand
 import finki.ukim.erp.orders.events.OrderApprovedEvent
 import finki.ukim.erp.orders.events.OrderCreatedEvent
@@ -26,17 +25,21 @@ import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 
 /**
- * The half of approval and invoicing that does *not* live in the aggregate: an order may only move
- * on while inventory is still holding the goods it was placed against.
+ * The half of invoicing that does *not* live in the aggregate: an order may only be billed while
+ * inventory is still holding the goods it was placed against.
  *
- * The question these handlers ask changed with the reservation. It used to be "is there enough free
+ * The question the handler asks changed with the reservation. It used to be "is there enough free
  * stock for this order", which stopped being answerable the moment placing an order put its stock
  * aside - the order's own goods are no longer free, so an order for the last of something would
- * have failed its own approval. What is asked now is whether the hold taken at placement is still
+ * have failed its own check. What is asked now is whether the hold taken at placement is still
  * there and still covers the lines.
  *
- * Stock is what the external command handlers add on top of the aggregate's own rules, so this is
- * the test that covers them - OrderAggregateTest deliberately hands them a catalog that is holding
+ * Approval is not tested here, because it no longer asks inventory anything: an order is approved
+ * by inventory confirming its goods out, and that message is its own proof. See
+ * StockLifecycleEventHandlerTest and OrderAggregateTest.
+ *
+ * Stock is what the external command handler adds on top of the aggregate's own rules, so this is
+ * the test that covers it - OrderAggregateTest deliberately hands it a catalog that is holding
  * everything, to keep its own assertions about order state honest.
  */
 class StockRecheckTest {
@@ -52,7 +55,6 @@ class StockRecheckTest {
     }
 
     private fun withCatalog(catalog: FakeInventoryCatalog) {
-        fixture.registerAnnotatedCommandHandler(ApproveOrderCommandHandler(fixture.repository, catalog))
         fixture.registerAnnotatedCommandHandler(GenerateInvoiceCommandHandler(fixture.repository, catalog))
     }
 
@@ -94,11 +96,11 @@ class StockRecheckTest {
     }
 
     @Test
-    fun `an order whose reservation has gone is not approved`() {
+    fun `a paid order cannot be invoiced once its reservation is gone`() {
         withCatalog(holdingNothing())
 
-        fixture.givenState { pendingOrder() }
-            .`when`(ApproveOrderCommand(orderId))
+        fixture.givenState { paidOrder() }
+            .`when`(invoiceCommand())
             .expectException(StockNotReservedException::class.java)
             .expectNoEvents()
     }
@@ -108,38 +110,8 @@ class StockRecheckTest {
      * leaves behind when the new lines were reserved and the order itself then failed to change.
      */
     @Test
-    fun `an order held for less than it asks for is not approved`() {
+    fun `a paid order held for less than it asks for is not invoiced`() {
         withCatalog(holding(quantity = 1))
-
-        fixture.givenState { pendingOrder() }
-            .`when`(ApproveOrderCommand(orderId))
-            .expectException(StockNotReservedException::class.java)
-            .expectNoEvents()
-    }
-
-    /**
-     * Exactly the order's own quantity, and nothing spare. Under the old availability check this
-     * was the case that broke: the order's two units were reserved, so nothing was free, and the
-     * order was refused its own goods.
-     */
-    @Test
-    fun `an order still backed by its reservation is approved`() {
-        withCatalog(holding(quantity = 2))
-
-        fixture.givenState { pendingOrder() }
-            .`when`(ApproveOrderCommand(orderId))
-            .expectSuccessfulHandlerExecution()
-            .expectEvents(
-                OrderApprovedEvent(
-                    orderId,
-                    listOf(OrderItemEventData(ProductId("product-1"), Quantity(2), Money(BigDecimal("25.00"))))
-                )
-            )
-    }
-
-    @Test
-    fun `a paid order cannot be invoiced once its reservation is gone`() {
-        withCatalog(holdingNothing())
 
         fixture.givenState { paidOrder() }
             .`when`(invoiceCommand())

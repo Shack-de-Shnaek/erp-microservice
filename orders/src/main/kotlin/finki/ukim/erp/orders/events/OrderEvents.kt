@@ -6,7 +6,6 @@ import finki.ukim.erp.orders.OrderId
 import finki.ukim.erp.orders.OrderItem
 import finki.ukim.erp.orders.ProductId
 import finki.ukim.erp.orders.Quantity
-import finki.ukim.erp.orders.commands.ApproveOrderCommand
 import finki.ukim.erp.orders.commands.CreateOrderCommand
 import finki.ukim.erp.orders.commands.PricedItem
 import finki.ukim.erp.orders.commands.RejectOrderCommand
@@ -84,20 +83,19 @@ data class OrderItemsUpdatedEvent(
 }
 
 /**
- * Published: approval is the moment goods are committed to a customer, which is what inventory
- * needs to reserve against. It carries the lines for that reason - an event saying only "order 5
- * was approved" would send every consumer back to ask what was on it.
+ * Published: the order has been committed, because inventory confirmed its goods out of the
+ * warehouse and this service moved the order to match.
+ *
+ * It asks nothing of anyone - the goods were reserved at placement and have already gone - but it
+ * is the one announcement that an order became real, so it goes out for anyone following the life
+ * of an order. It carries the lines because an event saying only "order 5 was approved" would send
+ * every such reader back to ask what was on it.
  */
 data class OrderApprovedEvent(
     override val orderId: OrderId,
     val items: List<OrderItemEventData>,
     override val occurredAt: LocalDateTime = LocalDateTime.now()
 ) : OrderEvent(orderId, occurredAt) {
-
-    constructor(command: ApproveOrderCommand, orderItems: List<OrderItem>) : this(
-        orderId = command.orderId,
-        items = orderItems.map { OrderItemEventData(it) }
-    )
 
     override fun toExternalEvent() = OrderApprovedExternalEvent(
         orderId = orderId,

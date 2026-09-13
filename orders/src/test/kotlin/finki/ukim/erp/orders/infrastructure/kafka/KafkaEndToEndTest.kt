@@ -3,6 +3,7 @@ package finki.ukim.erp.orders.infrastructure.kafka
 import finki.ukim.erp.orders.OrderStatus
 import finki.ukim.erp.orders.dto.OrderItemRequest
 import finki.ukim.erp.orders.events.ORDER_NULLIFIED_TOPIC
+import finki.ukim.erp.orders.handlers.StockLifecycleEventHandler
 import finki.ukim.erp.orders.services.OrderCommandService
 import finki.ukim.erp.orders.services.OrderViewReadService
 import org.apache.kafka.clients.consumer.ConsumerConfig
@@ -52,6 +53,10 @@ class KafkaEndToEndTest {
     @Autowired
     private lateinit var orderViewReadService: OrderViewReadService
 
+    /** Approval, the only way it happens: inventory confirming the order's goods out. */
+    @Autowired
+    private lateinit var stockLifecycleEventHandler: StockLifecycleEventHandler
+
     companion object {
         private const val BOOTSTRAP = "localhost:9092"
 
@@ -96,14 +101,14 @@ class KafkaEndToEndTest {
     }
 
     @Test
-    fun `approving an order publishes it on order-approved for other services to reserve against`() {
+    fun `stock confirmed by inventory approves the order and publishes it on order-approved`() {
         val order = orderCommandService.createOrder(
             name = "John",
             surname = "Doe",
             customerId = "customer-e2e",
             items = listOf(OrderItemRequest(productId = "product-1", quantity = 2))
         )
-        orderCommandService.approveOrder(order.id)
+        stockLifecycleEventHandler.onStockConfirmed(order.id)
 
         val published = awaitMessage("order.approved", Duration.ofSeconds(20)) { it.contains(order.id.value) }
 
@@ -128,7 +133,7 @@ class KafkaEndToEndTest {
             customerId = "customer-e2e",
             items = listOf(OrderItemRequest(productId = "product-1", quantity = 2))
         )
-        orderCommandService.approveOrder(order.id)
+        stockLifecycleEventHandler.onStockConfirmed(order.id)
         orderCommandService.cancelOrder(order.id, "customer-e2e")
 
         val published = awaitMessage(ORDER_NULLIFIED_TOPIC, Duration.ofSeconds(20)) { it.contains(order.id.value) }

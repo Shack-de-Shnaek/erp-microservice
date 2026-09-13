@@ -191,11 +191,18 @@ this service's own `order.nullified` and is read and dropped. A reason orders ha
 about becomes `UNKNOWN` and is treated as *not* a withdrawal - the safe direction, since the order
 is left alone rather than closed on a guess.
 
-**No pact, deliberately.** A consumer pact is a demand on the provider, and these three are
-consumed on a best-effort basis: orders acts on them when they arrive and is correct without them
-(approval and invoicing both re-read the reservation over HTTP, which is contract 1). Pinning them
-would oblige inventory to keep publishing events nothing depends on. `StockLifecycleEventHandlerTest`
-and `KafkaEventConsumerTest` cover the behaviour on this side instead.
+**No pact, deliberately — but `stock.confirmed` is no longer optional.** A consumer pact is a
+demand on the provider, and the two *release* topics are still consumed best-effort: orders acts on
+them when they arrive and is correct without them, since invoicing re-reads the reservation over
+HTTP (contract 1) and would refuse an order whose goods had gone.
+
+`stock.confirmed` is now the only thing that approves an order. Lose it and orders never leaves
+`PENDING`, and no amount of HTTP re-reading recovers that — there is no endpoint that approves an
+order any more. It is kept out of the pact suite for the practical reason that the message is
+already covered end-to-end by `KafkaEndToEndTest` against a real broker, and by
+`StockLifecycleEventHandlerTest` and `KafkaEventConsumerTest` on this side; but it is a hard
+dependency now, not a best-effort one, and a pact on it would be defensible where one on the others
+would not.
 
 ## 5. Kafka out - orders approves an order
 
@@ -212,9 +219,10 @@ Consumer `inventory`, provider `orders`. Topic `order.approved`, published by
 
 **Inventory no longer acts on this.** It once did - approval used to be the moment stock was
 reserved - but the reservation moved to the moment the order is *placed*, over HTTP, where the
-caller can be told "no" while it still matters. By the time approval happens the goods are already
-aside, so `OrderLifecycleSaga` has nothing to do here and inventory's consumer does not subscribe
-to the topic.
+caller can be told "no" while it still matters. Approval now runs the other way entirely: it is
+what *inventory* causes by confirming the goods out, so this topic carries inventory's own decision
+coming back to it. `OrderLifecycleSaga` has nothing to do here and inventory's consumer does not
+subscribe to the topic.
 
 The contract is kept because the pact is still verified and the event is still published, for
 anyone following the life of an order rather than only holding stock against it. The lines travel

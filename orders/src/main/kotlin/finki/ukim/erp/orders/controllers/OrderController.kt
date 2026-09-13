@@ -71,7 +71,8 @@ class OrderController(
     @Operation(
         summary = "List orders in a given status",
         description = "Filters the read model by lifecycle status (PENDING, APPROVED, REJECTED, " +
-            "CANCELLED, ...). Use it to work a queue - for example every PENDING order awaiting approval."
+            "CANCELLED, ...). Use it to work a queue - for example every PENDING order still " +
+            "waiting for inventory to confirm its goods out."
     )
     @GetMapping("/by-status/{status}")
     fun findByStatus(@PathVariable status: OrderStatus): List<OrderView> =
@@ -107,16 +108,6 @@ class OrderController(
     @PutMapping("/{id}/items")
     fun updateOrderItems(@PathVariable id: String, @Valid @RequestBody request: UpdateOrderItemsRequest): OrderView =
         orderCommandService.updateOrderItems(OrderId(id), request.items)
-
-    @Operation(
-        summary = "Approve an order",
-        description = "Re-checks that inventory is still holding the reservation taken when the order " +
-            "was placed, then approves it and announces order.approved for anyone following the life " +
-            "of an order. Administrators only."
-    )
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasRole('ADMIN')")
-    fun approveOrder(@PathVariable id: String): OrderView = orderCommandService.approveOrder(OrderId(id))
 
     @Operation(
         summary = "Reject an order",

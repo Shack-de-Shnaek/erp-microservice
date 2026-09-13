@@ -11,7 +11,6 @@ import finki.ukim.erp.orders.ProductId
 import finki.ukim.erp.orders.Quantity
 import finki.ukim.erp.orders.TransactionId
 import finki.ukim.erp.orders.clients.InventoryCatalog
-import finki.ukim.erp.orders.commands.ApproveOrderCommand
 import finki.ukim.erp.orders.commands.CancelOrderCommand
 import finki.ukim.erp.orders.commands.CreateOrderCommand
 import finki.ukim.erp.orders.commands.GenerateInvoiceCommand
@@ -46,7 +45,12 @@ import java.util.UUID
  * *before* the order is created, synchronously, so that an order which exists is always an order
  * something is being held for - see [createOrder]. Confirming that the hold is still standing needs
  * the order's current state as well as the inventory service, so it happens one step later, in the
- * external command handlers in [finki.ukim.erp.orders.handlers].
+ * external command handler in [finki.ukim.erp.orders.handlers].
+ *
+ * There is no `approveOrder` here, and its absence is deliberate. An order is approved when
+ * inventory confirms its goods out of the warehouse, which reaches this service as `stock.confirmed`
+ * and is dispatched by [finki.ukim.erp.orders.handlers.StockLifecycleEventHandler]. Nothing a caller
+ * does to this service can approve an order.
  *
  * Commands are dispatched with `sendAndWait`, so by the time one returns the aggregate's row has
  * been written and the follow-up read sees it.
@@ -127,12 +131,6 @@ class OrderCommandService(
 
         inventoryCatalog.amend(orderId.value, totalPerProduct(pricedItems))
         commandGateway.sendAndWait<Any>(UpdateOrderItemsCommand(orderId = orderId, items = pricedItems))
-        return orderViewReadService.findById(orderId)
-    }
-
-    fun approveOrder(orderId: OrderId): OrderView {
-        // Stock is re-checked by ApproveOrderCommandHandler, inside the command's unit of work.
-        commandGateway.sendAndWait<Any>(ApproveOrderCommand(orderId))
         return orderViewReadService.findById(orderId)
     }
 

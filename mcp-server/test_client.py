@@ -2,8 +2,8 @@
 
 Reads run by default. Passing --write also runs a write round trip: it places an order against a
 real product and cancels it again, which leaves the read model where it found it apart from one
-cancelled order. Nothing here approves, invoices or takes payment - those are not reversible, and
-a smoke test should not need cleaning up after.
+cancelled order. Nothing here confirms stock out, invoices or takes payment - those are not
+reversible, and a smoke test should not need cleaning up after.
 
 The environment is whatever `server.py` reads, so this exercises the same gateway and the same
 credentials the configured clients will use:

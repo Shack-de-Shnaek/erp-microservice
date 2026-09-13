@@ -37,8 +37,14 @@ data class OrderCreatedExternalEvent(
 )
 
 /**
- * The order is going ahead. This is the one inventory acts on: approval is the point at which
- * goods are committed to a customer, so it carries the lines to reserve.
+ * The order is going ahead - inventory has confirmed its goods out of the warehouse, and this
+ * service has recorded what that means for the order.
+ *
+ * Nobody consumes it today, and that is not an oversight. It is the *acknowledgement* of a
+ * commitment inventory already made, not a request for one: the stock was put aside when the order
+ * was placed and taken off the shelf when it was confirmed, so a consumer holding goods has nothing
+ * left to do here. It is published for anyone following the life of an order, and it carries the
+ * lines so that such a reader is not sent back to ask what was on it.
  */
 data class OrderApprovedExternalEvent(
     val orderId: OrderId,

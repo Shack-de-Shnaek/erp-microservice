@@ -45,10 +45,6 @@ data class UpdateOrderItemsCommand(
     val items: List<PricedItem>
 )
 
-data class ApproveOrderCommand(
-    @TargetAggregateIdentifier val orderId: OrderId
-)
-
 data class RejectOrderCommand(
     @TargetAggregateIdentifier val orderId: OrderId
 )
@@ -56,11 +52,17 @@ data class RejectOrderCommand(
 /**
  * Inventory confirmed this order's goods out, which is what commits the order.
  *
- * Separate from [ApproveOrderCommand] because the two prove the same thing by opposite means.
- * An administrator's approval has to go and check that the hold is still standing, which is why
- * [finki.ukim.erp.orders.handlers.ApproveOrderCommandHandler] owns it and reaches for inventory.
- * This one arrives *from* inventory, saying the goods have already gone out - there is nothing left
- * to verify, and verifying it would fail, because a confirmed hold is no longer a hold.
+ * The only way an order is approved. There is deliberately no administrator's approval alongside
+ * it: approval means the goods behind the order have actually gone, and only inventory knows that.
+ * An approval this service could grant on its own would be a promise made against a hold that
+ * inventory might release the next moment.
+ *
+ * It carries no stock check either, and that is not an omission. This arrives *from* inventory,
+ * saying the goods have already left the shelf - there is nothing left to verify, and verifying it
+ * would fail, because a confirmed hold is no longer a hold.
+ *
+ * It is dispatched by [finki.ukim.erp.orders.handlers.StockLifecycleEventHandler] off
+ * `stock.confirmed`.
  */
 data class ApproveOrderForConfirmedStockCommand(
     @TargetAggregateIdentifier val orderId: OrderId
