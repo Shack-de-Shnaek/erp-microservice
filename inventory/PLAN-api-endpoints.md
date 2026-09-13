@@ -31,6 +31,12 @@ RESTful API design for the inventory microservice in the ERP system. Follows sta
 | `PATCH` | `/{productId}` | Partial update | `PatchProductRequest` | `ProductView` | **New** |
 | `DELETE` | `/{productId}` | Soft-delete (deactivate) | — | `204 No Content` | **New** |
 | `GET` | `/by-sku/{sku}` | Lookup by SKU | — | `ProductView` | **New** |
+| `POST` | `/{productId}/deactivate` | Withdraw from sale, returning the product | — | `ProductView` | **New** |
+| `POST` | `/{productId}/reactivate` | Put back on sale | — | `ProductView` | **New** |
+
+`DELETE /{productId}` and `POST /{productId}/deactivate` send the same command; the first answers
+`204` for a caller that thinks in REST deletes, the second returns the updated product for a caller
+that wants to see the result. Only `POST /{productId}/reactivate` undoes it.
 
 #### Product DTOs
 
@@ -70,6 +76,13 @@ data class PatchProductRequest(
 | `POST` | `/{productId}/adjust` | Manual adjustment | `AdjustStockRequest` | `StockItemView` | Existing |
 | `GET` | `/low-stock` | Items below threshold | — | `List<StockItemView>` | Existing |
 | `GET` | `/summary` | Aggregate stats | — | `StockSummaryResponse` | **New** |
+| `POST` | `/{productId}/reserve` | Hold stock for one order, one product | `ReserveStockRequest` | `StockItemView` | **New** |
+| `POST` | `/{productId}/release` | Give back that hold | `ReleaseReservationRequest` | `StockItemView` | **New** |
+| `POST` | `/{productId}/confirm` | The goods left the shelf | `ConfirmStockRequest` | `StockItemView` | **New** |
+
+The last three are the low-level counterpart of `/api/reservations`, addressed one product at a
+time rather than one order at a time, and are ADMIN or SERVICE. `/api/reservations` is what an
+ordering service should call; these exist for an administrator correcting one item by hand.
 
 #### Stock DTOs
 
@@ -91,6 +104,19 @@ data class UpdateReorderThresholdRequest(
     val reorderThreshold: Int
 )
 
+data class ReserveStockRequest(
+    val orderRef: String,
+    val quantity: Int
+)
+
+data class ReleaseReservationRequest(
+    val orderRef: String
+)
+
+data class ConfirmStockRequest(
+    val orderRef: String
+)
+
 data class StockSummaryResponse(
     val totalProducts: Int,
     val totalOnHand: Int,
@@ -110,7 +136,14 @@ data class StockSummaryResponse(
 | `GET` | `/` | List active reservations | — | `Page<ReservationView>` | **New** |
 | `GET` | `/{orderRef}` | Get reservation by order | — | `ReservationView` | **New** |
 | `DELETE` | `/{orderRef}` | Release reservation | — | `204 No Content` | **New** |
+| `PUT` | `/{orderRef}` | Amend to a new set of lines | `AmendReservationRequest` | `ReservationView` | **New** |
 | `POST` | `/{orderRef}/confirm` | Confirm (fulfill) | — | `ReservationView` | Existing |
+
+`PUT` states every line the order should hold once the amendment is done, not the ones that
+changed. One call covers a raised line, a lowered one, a dropped one and a new one together, and it
+applies whole or not at all - which is what keeps the order from standing empty-handed between
+giving stock back and asking for it again. An order never contests stock it is keeping, so only the
+part of a line going *up* can fail.
 
 #### Reservation DTOs
 
@@ -136,6 +169,10 @@ data class ReservationLineView(
     val productId: String,
     val quantity: Int
 )
+
+data class AmendReservationRequest(
+    val lines: List<ReservationLineRequest>
+)
 ```
 
 ---
@@ -153,18 +190,32 @@ The orders service consumes these endpoints and events:
 | Check availability | `GET /api/stock/{productId}` → compute `onHand - reserved` | Pre-order validation |
 | Reserve stock | `POST /api/reservations` | On order placement |
 | Confirm stock | `POST /api/reservations/{orderRef}/confirm` | On delivery/fulfillment |
+| Amend a reservation | `PUT /api/reservations/{orderRef}` | When an order's lines are edited |
 | Release stock | `DELETE /api/reservations/{orderRef}` | On order cancellation |
+| Read a reservation | `GET /api/reservations/{orderRef}` | Before approving or invoicing, to check the hold still stands |
 
 ### Kafka Events (asynchronous)
 
-| Event | Topic | Published By | Consumed By |
-|-------|-------|--------------|-------------|
-| Product created | `product.created` | Inventory | Orders (catalog sync) |
-| Product updated | `product.updated` | Inventory | Orders (catalog sync) |
-| Product deactivated | `product.deactivated` | Inventory | Orders (catalog sync) |
-| Stock reserved | `stock.reserved` | Inventory | Orders (confirmation) |
-| Stock confirmed | `stock.confirmed` | Inventory | Orders (confirmation) |
-| Order placed | `order.placed` | Orders | Inventory (auto-reserve) |
+Everything inventory publishes, and who reads it. Orders is the only consumer today; the rest are
+published because they are facts about the ledger, not because somebody asked for them.
+
+| Event | Topic | Consumed by orders? |
+|-------|-------|---------------------|
+| Product created | `product.created` | No — orders keeps no catalogue of its own |
+| Product updated | `product.updated` | No — a rename does not change a priced order |
+| Product deactivated | `product.deactivated` | **Yes** — rejects every pending order for that product |
+| Product reactivated | `product.reactivated` | No — the orders it rejected are finished |
+| Stock reserved | `stock.reserved` | No — orders already knows, it asked for the hold synchronously |
+| Stock reservation amended | `stock.reservation.amended` | No — same reason |
+| Stock reservation released | `stock.reservation.released` | **Yes** — a hold orders did not ask to drop means the order is no longer backed |
+| Stock returned | `stock.returned` | **Yes** — same handler; confirmed goods coming back ends the order the same way |
+| Stock confirmed | `stock.confirmed` | **Yes** — the goods left the shelf, so a pending order is approved |
+| Stock adjusted | `stock.adjusted` | No — orders re-checks its reservation at approval and invoicing |
+
+The reverse direction is one topic. Orders publishes `order.nullified` — cancelled, rejected or
+refunded, in the same words — and inventory's `OrderLifecycleSaga` releases whatever it is holding
+for that order. There is deliberately no reservation on `order.approved`: stock is taken
+synchronously when the order is placed, so by approval time the goods are already aside.
 
 ---
 

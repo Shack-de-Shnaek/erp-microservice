@@ -110,8 +110,9 @@ class OrderController(
 
     @Operation(
         summary = "Approve an order",
-        description = "Re-checks that the stock the order was accepted on is still there, then approves " +
-            "it and announces order.approved so inventory can commit the goods. Administrators only."
+        description = "Re-checks that inventory is still holding the reservation taken when the order " +
+            "was placed, then approves it and announces order.approved for anyone following the life " +
+            "of an order. Administrators only."
     )
     @PostMapping("/{id}/approve")
     @PreAuthorize("hasRole('ADMIN')")

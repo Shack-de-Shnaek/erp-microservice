@@ -25,17 +25,27 @@ why these calls exist.
 | **Aggregate** | `Order` | `Order` |
 | **Commands** | `CreateOrderCommand`, `UpdateOrderItemsCommand` | `ApproveOrderCommand`, `GenerateInvoiceCommand` |
 | **Handled in** | `OrderCommandService` (before dispatch) | `ApproveOrderCommandHandler`, `GenerateInvoiceCommandHandler` |
-| **Question** | Does each product exist, can it cover the quantity, and what does it cost? | Is the stock this order was accepted on *still* there? |
-| **Endpoint** | `GET /api/products/{id}` + `GET /api/stock/{id}`, per line | the same |
-| **Response** | A catalogue entry and a stock ledger row, joined here | the same |
-| **If the answer is no** | 404 `ProductNotFoundException` / 400 `InsufficientStockException` | the same, and the order does not move |
+| **Question** | Does each product exist, can it cover the quantity, and what does it cost? — then: *hold it* | Is inventory *still* holding what it agreed to hold? |
+| **Endpoint** | `GET /api/products/{id}` + `GET /api/stock/{id}` per line, then one `POST /api/reservations` (or `PUT /api/reservations/{orderRef}` on an amendment) | `GET /api/reservations/{orderRef}`, once |
+| **Response** | A catalogue entry and a stock ledger row, joined here; then the reservation | The reservation, or 404 |
+| **If the answer is no** | 404 `ProductNotFoundException` / 400 `InsufficientStockException` | 400 `StockNotReservedException`, and the order does not move |
 
-They look similar and are not the same question. The first is *validation of a reference*: a
-product id that arrived in a JSON body may be a typo, and an order line pointing at a product
-nobody stocks is meaningless. The second is *validation of a condition that expires*: an order can
-sit pending for days, and the stock it was accepted on can be sold to someone else in the meantime.
-Only asking at creation time would approve orders that cannot be fulfilled; only asking at approval
-time would let customers place orders for products that never existed.
+They look similar and are not the same question. The first is *validation of a reference* followed
+by a *commitment*: a product id that arrived in a JSON body may be a typo, an order line pointing at
+a product nobody stocks is meaningless — and once both check out, the goods are put aside there and
+then. Placement is the moment a customer is told their order stands, and that promise must not rest
+on a message still in flight, which is why the hold is taken synchronously rather than announced as
+an event.
+
+The second is *verification that the commitment survived*. An order can sit pending for days. The
+reservation can be gone by then: an amendment that could not be re-reserved, a release that ran when
+it should not have, an inventory database restored from behind. So approval and invoicing ask what
+the reservation actually holds.
+
+Note what the second question is **not**: it does not ask whether stock is *available*. The order's
+own goods were put aside when it was placed, so they no longer count as available — asking "is
+there enough free stock for this order" would be asking whether a *second* copy of it could be
+filled, and an order for the last of something would fail its own approval.
 
 Pricing is where the boundary is currently unfinished. A price is inventory's to state, and the
 aggregate is not allowed to go and fetch one - see "Why the aggregate never holds a client" below -
@@ -58,7 +68,30 @@ GET /api/stock/{id}
   200 -> {"stockItemId":"2222...","productId":"1111...","onHand":100,
           "reserved":0,"reorderThreshold":10}
   404 -> the product exists but nothing is stocked -> availability of zero
+
+POST /api/reservations
+  {"orderRef":"Order:9f1c...","lines":[{"productId":"1111...","quantity":2}]}
+  201 -> {"orderRef":"Order:9f1c...","status":"ACTIVE","lines":[...]}
+  400 -> unknown or withdrawn product, or not enough left; the reason is in the body
+
+PUT /api/reservations/{orderRef}
+  {"lines":[{"productId":"1111...","quantity":5}]}     every line the order should now hold
+  200 -> the amended reservation
+  400 -> as above          404 -> inventory holds no reservation for this order
+
+GET /api/reservations/{orderRef}
+  200 -> what inventory is currently holding      404 -> it is holding nothing
+
+DELETE /api/reservations/{orderRef}
+  204 -> released                                 404 -> nothing held
 ```
+
+**The reservation is one decision, not a line at a time.** `POST` takes the whole order's stock or
+none of it. `PUT` states every line the order should hold once the amendment is done rather than the
+ones that changed, which is what lets a raised line, a lowered one, a dropped one and a new one move
+together — and what keeps the order from standing empty-handed between giving stock back and asking
+for it again, the race a release followed by a fresh reservation cannot avoid. An order never
+contests stock it is keeping, so only the part of a line going *up* can fail.
 
 **One question, two resources.** Inventory keeps the catalogue and the stock ledger apart, with
 separate lifecycles, and that is a reasonable thing for that service to do rather than something
@@ -79,10 +112,12 @@ This contract is not just prose: `InventoryClientPactTest` exercises the real cl
 mock provider and writes `target/pacts/orders-inventory.json`. Inventory verifies itself against
 that file, so if either endpoint changes shape, their build fails rather than our runtime.
 
-**The missing batch endpoint.** Approval and invoicing check *every line of an order at once*,
-inside the command's unit of work. Inventory exposes one product by id and a paged listing of the
-whole catalogue, and neither of those is "these four ids" - so an n-line order costs 2n sequential
-HTTP calls with a database transaction held open across all of them. `InventoryResilienceTest`
+**The missing batch endpoint.** Placing or amending an order prices and checks *every line at
+once*, inside the command's unit of work. Inventory exposes one product by id and a paged listing of
+the whole catalogue, and neither of those is "these four ids" - so an n-line order costs 2n
+sequential HTTP calls with a database transaction held open across all of them, plus the one
+reservation call at the end. (Approval and invoicing no longer pay this: they ask
+`GET /api/reservations/{orderRef}` once, whatever the order's size.) `InventoryResilienceTest`
 asserts that cost rather than hiding it, so the day inventory adds `GET /api/products?ids=` (and the
 same on `/api/stock`) the improvement is visible as that number falling. It is not something orders
 can arrange on its own.
@@ -120,8 +155,28 @@ interface InventoryClient {
 
     @GetMapping("/api/stock/{productId}")
     fun getStock(@PathVariable productId: String): InventoryStockResponse
+
+    @PostMapping("/api/reservations", consumes = ["application/json"])
+    fun createReservation(@RequestBody request: CreateReservationRequest): InventoryReservationResponse
+
+    @PutMapping("/api/reservations/{orderRef}", consumes = ["application/json"])
+    fun amendReservation(
+        @PathVariable orderRef: String,
+        @RequestBody request: AmendReservationRequest
+    ): InventoryReservationResponse
+
+    @DeleteMapping("/api/reservations/{orderRef}")
+    fun releaseReservation(@PathVariable orderRef: String)
+
+    @GetMapping("/api/reservations/{orderRef}")
+    fun getReservation(@PathVariable orderRef: String): InventoryReservationResponse
 }
 ```
+
+`consumes` on the two write methods is not decoration. Without it Feign has no content type for the
+body and falls back to form encoding, so a perfectly good JSON payload arrives labelled
+`application/x-www-form-urlencoded` and Spring refuses it with a 415 before any of this service's
+code runs. The GETs need no such thing — they have no body to label.
 
 ### Why the aggregate never holds a client
 
@@ -140,7 +195,10 @@ class ApproveOrderCommandHandler(
     @CommandHandler
     fun handle(command: ApproveOrderCommand) {
         val order = orderRepository.load(command.orderId.value)
-        inventoryCatalog.verifyStockAvailable(order.invoke { it.requestedQuantities() })
+        inventoryCatalog.verifyStockReserved(
+            command.orderId.value,
+            order.invoke { it.requestedQuantities() }
+        )
         order.execute { it.approve(command) }
     }
 }
@@ -163,6 +221,7 @@ called, so a shortfall means no event is applied and the order is untouched. Tha
 |---|---|---|
 | `ProductNotFoundException` | 404 | Inventory answered, and has no such product |
 | `InsufficientStockException` | 400 | Inventory has it and cannot cover the quantity |
+| `StockNotReservedException` | 400 | Inventory is not holding what this order was accepted on — no reservation at all, or less than the order needs |
 | `InventoryUnavailableException` | 503 | Inventory did not answer |
 
 The third is the one that matters most, and the next section is about keeping it distinct from the
@@ -266,9 +325,11 @@ what bounds the call.
 ## Part 6 - Verification
 
 Run against the shared infrastructure (`docker compose up -d` at the repo root: Kafka, Consul,
-Keycloak with the `erp` realm imported), the orders service on 8090, and a stub standing in for the
-inventory team's service on 8081. Tokens are real, from Keycloak: `customer/customer` holds CLIENT,
-`staff/staff` holds ADMIN.
+Keycloak with the `erp` realm imported) and a stub standing in for the inventory team's service.
+Tokens are real, from Keycloak's `erp` realm, whose sample users are `customer/customer` (CUSTOMER)
+and `admin/admin` (ADMIN and CUSTOMER). The transcripts below were captured with the orders service
+on a host port of 8090; under the current compose file it is published on 8089, and inventory on
+8081.
 
 > **These transcripts predate the move to inventory's real URLs.** They were captured against the
 > old `/products?ids=` shape and numeric product ids, and are kept because what they demonstrate -

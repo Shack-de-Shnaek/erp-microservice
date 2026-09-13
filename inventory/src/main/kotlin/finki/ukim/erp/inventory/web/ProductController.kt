@@ -24,7 +24,6 @@ import org.axonframework.commandhandling.gateway.CommandGateway
 import org.axonframework.queryhandling.QueryGateway
 import org.axonframework.messaging.responsetypes.ResponseTypes
 import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.http.HttpStatus
@@ -92,9 +91,11 @@ class ProductController(
         @Parameter(description = "Page size") @RequestParam(defaultValue = "20") size: Int,
     ): Page<ProductView> {
         val pageable = PageRequest.of(page, size, Sort.by("productId"))
+        // The filter is pushed into the query rather than applied to a full list here: paging a
+        // result set that was already loaded whole is not paging, and it used to return every
+        // matching product whatever page was asked for.
         return if (status != null) {
-            val results = productViewRepository.findByStatus(status)
-            PageImpl(results.toMutableList(), pageable, results.size.toLong())
+            productViewRepository.findByStatus(status, pageable)
         } else {
             productViewRepository.findAll(pageable)
         }

@@ -235,7 +235,7 @@ class ReservationController(
      * Everything knowably wrong is refused here, off the read model, so the ordinary rejections -
      * an unknown product, a withdrawn one, not enough on the shelf - never leave a half-amended
      * reservation behind. What survives this is a plan whose steps are expected to succeed, so
-     * [apply] unwinding is the rare path rather than the usual one.
+     * [execute] unwinding is the rare path rather than the usual one.
      *
      * As with [validated], this does not replace the aggregate's own check. Between here and the
      * command another order can take the stock, and `StockItem` is the only thing that decides
@@ -370,7 +370,12 @@ class ReservationController(
     }
 
     @GetMapping
-    @Operation(summary = "List active reservations with pagination")
+    @Operation(
+        summary = "List reservations with pagination",
+        description = "Every reservation the projection still holds: those being held for an order, " +
+            "and those already confirmed but whose goods have not been returned. A released " +
+            "reservation is removed outright and is not listed.",
+    )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "Reservations listed"),

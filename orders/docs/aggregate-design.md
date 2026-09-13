@@ -27,7 +27,7 @@ points at without a join.
 | `customerId` | `String` (Keycloak subject) | No — ownership does not transfer |
 | `date` | `LocalDateTime` | No |
 | `status` | `OrderStatus` enum | Yes — the lifecycle |
-| `orderItems` | `List<OrderItem>` (entities) | Yes, until an invoice exists |
+| `orderItems` | `List<OrderItem>` (entities) | Yes, while pending or approved and no invoice exists |
 | `transactions` | `List<Transaction>` (entities) | Append-only; never edited or deleted |
 | `invoice` | `Invoice?` (entity) | Set once; afterwards only reversed |
 | `version` | `Long` | Yes — optimistic locking |
@@ -44,13 +44,17 @@ when a line is added, and whether there is enough of it to go ahead. It also rea
 `ProductDeactivatedEvent`: an order still waiting for approval that asks for a withdrawn product
 can never be fulfilled, so it is rejected now rather than at approval time (Part 5).
 
-**Outgoing — Orders → Inventory.** `OrderApprovedEvent` is the point at which stock is committed to
-a customer; `OrderCancelledEvent` and `InvoiceReversedEvent` are the points at which it comes back.
-Orders publishes these; what inventory does with them is inventory's business (Part 5.3).
+**Outgoing — Orders → Inventory.** Stock is *taken* synchronously, when the order is placed
+(`POST /api/reservations`), because the customer is told there and then whether the order stands.
+It comes *back* as an event: `OrderCancelledEvent`, `OrderRejectedEvent` and `InvoiceReversedEvent`
+all publish `OrderNullifiedExternalEvent`, and inventory releases whatever it is holding. Orders
+publishes these; what inventory does with them is inventory's business (Part 5.3).
 
-**Outgoing — Orders → anything downstream.** Every domain event is republished to Kafka
-(`order-events`, `payment-events`, `invoice-events`) and documented as AsyncAPI by springwolf, so a
-reporting or notification service can be added later without orders changing.
+**Outgoing — Orders → anything downstream.** Every domain event that is published at all goes to
+its own topic, named after the event itself (`order.created`, `order.approved`, `invoice.generated`
+…) by `AbstractEvent.topicFor`, and is documented as AsyncAPI by springwolf - so a reporting or
+notification service can be added later without orders changing. Which events are published and
+which are kept internal is the table under "What is published, and what is not".
 
 ---
 
@@ -66,7 +70,14 @@ and `CustomerName`. Each guard:
 | `Embg` | exactly 13 digits |
 | `InvoiceNumber` | matches `INV-XXXX…` |
 | `CustomerName` | neither name nor surname blank |
-| `ProductId` | not negative |
+| `ProductId` | none — it is inventory's own identifier, carried verbatim (see below) |
+
+`ProductId` is the odd one out and deliberately so: it holds a string this service did not mint.
+Product ids belong to inventory, which generates UUIDs, so there is no rule orders could enforce
+about their shape that would not be a guess about another team's format. It was once a `Long`, on
+the assumption that inventory keyed products by a number; it does not, and every call built on that
+assumption was a guaranteed 404. Unlike `OrderId` and `InvoiceId` it also carries no `Product:`
+prefix, so what is printed and what goes on the wire are the same string.
 
 ### How they are mapped, and one deviation from the exercise
 
@@ -120,7 +131,7 @@ lifetime and it is still the same order, because `OrderId` says so.
 ## Part 3 — Commands, events, and the lifecycle
 
 Update commands (each with `@TargetAggregateIdentifier`): `UpdateOrderItemsCommand`,
-`RegisterPaymentCommand`, `UpdateInvoiceLineItemsCommand`, `ReverseInvoiceCommand`, plus the four
+`RegisterPaymentCommand`, `UpdateInvoiceLineItemsCommand`, `ReverseInvoiceCommand`, plus the
 lifecycle commands below.
 
 Lifecycle: `OrderStatus` is `PENDING → APPROVED | REJECTED | CANCELLED`, driven by
@@ -128,11 +139,27 @@ Lifecycle: `OrderStatus` is `PENDING → APPROVED | REJECTED | CANCELLED`, drive
 invalid transition (only a pending order can be approved or rejected; only a pending or approved
 order can be cancelled, and only by the customer who placed it).
 
+Two more lifecycle commands exist for the moves inventory causes rather than a person:
+`ApproveOrderForConfirmedStockCommand` (the goods left the shelf, so the order is committed) and
+`RejectOrderForWithdrawnStockCommand` (the goods are gone, so it cannot be). Both are driven by
+Kafka messages, which can be redelivered, so both treat an order that has already moved as a no-op
+rather than an error - the second delivery finds the world as the first one asked for it. The
+withdrawal command refuses one case loudly: an order with money against it is never closed this
+way, because rejection moves no money and doing so would strand a customer's payment.
+
 `Order` is a **state-stored** aggregate: `@Aggregate(repository = "axonOrderRepository")` with
 `@Entity`, loaded by the `GenericJpaRepository` in `AxonRepositoriesConfiguration` whose
 `identifierConverter { OrderId(it) }` rebuilds the typed id from the routing key's string form.
 Every handler follows the same three steps — build the event, `on(event)` to move state,
 `apply(event)` to publish it.
+
+Two of them are not `@CommandHandler`s on the aggregate at all. `approve` and `generateInvoice` are
+plain methods called by external handlers (`ApproveOrderCommandHandler`,
+`GenerateInvoiceCommandHandler`), because both have to ask inventory whether the order's
+reservation still stands before the order may move, and an aggregate may not reach outside itself.
+The rule about *which* orders may be approved stays on the aggregate, with the state it judges; only
+the question that needs the network sits outside. See
+[cross-service-calls.md](cross-service-calls.md).
 
 ### After three update commands and one status command, how many rows are in `DOMAIN_EVENT_ENTRY`?
 
@@ -229,16 +256,30 @@ decision the aggregate already made.
 
 ### 5.2 The handler
 
-`@Component` + `@KafkaListener`, looking affected orders up through `OrderViewReadService` and
-dispatching `RejectOrderCommand` through the `CommandGateway`.
+`ProductDeactivatedEventHandler` is a plain `@Component`: it looks affected orders up through
+`OrderViewReadService` and dispatches `RejectOrderCommand` through the `CommandGateway`, and there
+is no Kafka in it at all. The `@KafkaListener` lives one layer out, on `KafkaEventConsumer`, which
+reads the bytes, hands them to `ProductDeactivatedTranslator` and calls this handler with a
+`ProductId`. That split is what lets the decision be read and tested without a broker in sight; see
+the anti-corruption layer diagram below.
 
 ### 5.3 Outgoing event
 
-`OrderApprovedEvent` (`order-events`). Approval is the point at which goods are committed to a
-customer, so inventory is expected to reserve the quantities on the order's lines and refuse other
-orders that would take stock below what is now promised. The compensating pair is
-`OrderCancelledEvent` and `InvoiceReversedEvent`, on which the reservation is released. The handler
-for those is inventory's to write; orders only guarantees the events.
+`OrderNullifiedExternalEvent` (`order.nullified`). It is the one event inventory acts on, and it is
+the *end* of an order rather than its approval: cancelled, rejected or refunded, orders says all
+three in the same words, and inventory releases whatever it is holding for that order.
+
+Approval is not the moment stock is committed, and used not to be otherwise only for a while. Stock
+is taken when the order is **placed**, synchronously over `POST /api/reservations`, because the
+customer is told there and then whether the order stands — a promise of goods must not rest on a
+message still in flight. By approval time the goods are already aside, so `order.approved` is
+published for anyone following the life of an order and nothing subscribes to it to reserve
+anything.
+
+Inventory's side of the release is `OrderLifecycleSaga`, and it releases against *its own*
+reservation record rather than the lines on the event — an order edited after approval, or one
+whose reservation partly failed, does not match them. That handler is inventory's to write; orders
+only guarantees the events.
 
 ### Why `sendAndWait` rather than `send`
 
@@ -310,10 +351,10 @@ thing that happened. `AsyncApiDocumentation` derives the documented names from t
 | Internal event | Published as | Consumed by | Kept back |
 |---|---|---|---|
 | `OrderCreatedEvent` | `OrderCreatedExternalEvent` on `order.created` | anything tracking demand | customer name, Keycloak subject |
-| `OrderApprovedEvent` | `OrderApprovedExternalEvent` on `order.approved` | inventory — reserve these lines | prices, customer |
-| `OrderCancelledEvent` | `OrderCancelledExternalEvent` on `order.cancelled` **and** `OrderNullifiedExternalEvent` on `order.nullified` | inventory — release the reservation | refunded amount |
+| `OrderApprovedEvent` | `OrderApprovedExternalEvent` on `order.approved` | nobody today — anyone following the life of an order; the stock was reserved at placement | prices, customer |
+| `OrderCancelledEvent` | `OrderCancelledExternalEvent` on `order.cancelled` **and** `OrderNullifiedExternalEvent` on `order.nullified` | inventory, on the nullification — release the reservation | refunded amount |
 | `InvoiceGeneratedEvent` | `InvoiceGeneratedExternalEvent` on `invoice.generated` | anything reconciling sales | **EMBG**, line-level detail |
-| `InvoiceReversedEvent` | `InvoiceReversedExternalEvent` on `invoice.reversed` **and** `OrderNullifiedExternalEvent` on `order.nullified` | inventory — the sale is undone | — |
+| `InvoiceReversedEvent` | `InvoiceReversedExternalEvent` on `invoice.reversed` **and** `OrderNullifiedExternalEvent` on `order.nullified` | inventory, on the nullification — the sale is undone | — |
 | `OrderItemsUpdatedEvent` | *internal* | — | a pending order commits nothing |
 | `OrderRejectedEvent` | `OrderNullifiedExternalEvent` on `order.nullified` only | inventory — close the record for this order | *why* it was refused; there is no `order.rejected` |
 | `PaymentCreatedEvent` | *internal* | — | how somebody paid is between them and us |
@@ -379,6 +420,26 @@ product.deactivated  -->  KafkaEventConsumer          (JSON and Kafka; knows not
                            RejectOrderCommand --> Order
 ```
 
+The same layering carries the three stock topics, which arrived later and reuse every piece of it:
+
+```
+stock.confirmed            -->  KafkaEventConsumer
+                                   |  StockConfirmedExternalEventDTO
+                                 StockEventTranslator  (DTO in, OrderId / StockWithdrawnFromOrder out)
+                                   |
+                                 StockLifecycleEventHandler   (the decision; no Kafka in it)
+                                   |  commandGateway.sendAndWait
+                                 ApproveOrderForConfirmedStockCommand --> Order
+
+stock.reservation.released  \
+stock.returned              /   same path, ending in RejectOrderForWithdrawnStockCommand —
+                                but only when `reason` is WITHDRAWN_BY_INVENTORY. A release this
+                                service brought about (ORDER_NULLIFIED) is read and dropped;
+                                acting on it would mean every cancellation rejected its own order,
+                                a loop feeding on its own output. A reason orders has not been
+                                taught about becomes UNKNOWN and is likewise left alone.
+```
+
 The DTOs are declared in this service, not imported from inventory. Importing inventory's class
 would look like less code and would hand another team the ability to break this service by renaming
 a field — and would need a shared jar both services have to upgrade in step, which is most of the
@@ -412,32 +473,43 @@ Read back off the broker with the console consumer:
 $ docker exec broker /opt/kafka/bin/kafka-console-consumer.sh \
     --bootstrap-server localhost:9092 --topic order.created --from-beginning
 
-{"orderId":"Order:d5988bbe-366c-409a-99f6-e8081d85a53c","lines":[{"productId":4,"quantity":1}],
+{"orderId":"Order:d5988bbe-366c-409a-99f6-e8081d85a53c",
+ "lines":[{"productId":"a3f1c2d4-5e6b-47a8-9c10-2b3d4e5f6a7b","quantity":1}],
  "totalAmount":199.99,"createdAt":"2026-09-05T22:36:51.098861917"}
-{"orderId":"Order:ff3edb20-7080-4c84-a5e8-a68751c27c51","lines":[{"productId":1,"quantity":2}],
+{"orderId":"Order:ff3edb20-7080-4c84-a5e8-a68751c27c51",
+ "lines":[{"productId":"11111111-1111-1111-1111-111111111111","quantity":2}],
  "totalAmount":39.98,"createdAt":"2026-09-05T22:36:52.05485339"}
 
 $ … --topic order.approved --from-beginning
 
-{"orderId":"Order:ff3edb20-7080-4c84-a5e8-a68751c27c51","lines":[{"productId":1,"quantity":2}],
+{"orderId":"Order:ff3edb20-7080-4c84-a5e8-a68751c27c51",
+ "lines":[{"productId":"11111111-1111-1111-1111-111111111111","quantity":2}],
  "approvedAt":"2026-09-05T22:36:52.068609074"}
 ```
 
 No customer name, no Keycloak subject, no prices — only what a consumer needs.
+
+Product ids are inventory's UUIDs. An earlier capture of this transcript showed them as small
+integers, from when this service assumed inventory keyed products by a number; it does not.
 
 ### Consumer (Task 6.2)
 
 Publishing an inventory event by hand, in the shape another team's service would send:
 
 ```
-$ echo '{"_eventType":"ProductDeactivatedEvent","productId":{"value":4},"name":"Standing desk"}' \
+$ echo '{"productId":"a3f1c2d4-5e6b-47a8-9c10-2b3d4e5f6a7b","name":"Standing desk"}' \
     | docker exec -i broker /opt/kafka/bin/kafka-console-producer.sh \
         --bootstrap-server localhost:9092 --topic product.deactivated
 
-INFO f.u.e.o.i.kafka.KafkaEventConsumer : Processed external event: product Product:4 was deactivated
+INFO f.u.e.o.i.kafka.KafkaEventConsumer : Processed external event: product a3f1c2d4-… was deactivated
 ```
 
-The pending order for product 4 moved to `REJECTED`, which is what the test asserts.
+The pending order for that product moved to `REJECTED`, which is what the test asserts.
+
+`productId` is a flat string, and that is the whole of what inventory sends
+(`ProductDeactivatedExternalEvent` is one field). An earlier version of the DTO on this side
+expected `{"productId":{"value":7}}` — a guess at a shape nothing ever published, which meant every
+message failed to parse and was logged and dropped. `name` is accepted if present and ignored.
 
 ### Resilience (Task 6.3)
 
@@ -445,8 +517,8 @@ With the service stopped, a message was published to `product.deactivated` (prod
 startup it was consumed before anything else happened:
 
 ```
-22:38:02.415  INFO f.u.e.o.i.kafka.KafkaEventConsumer : Processed external event: product Product:2 was deactivated
-22:38:02.795  INFO f.u.e.o.i.kafka.KafkaEventConsumer : Processed external event: product Product:4 was deactivated
+22:38:02.415  INFO f.u.e.o.i.kafka.KafkaEventConsumer : Processed external event: product 7c2e19b0-… was deactivated
+22:38:02.795  INFO f.u.e.o.i.kafka.KafkaEventConsumer : Processed external event: product a3f1c2d4-… was deactivated
 ```
 
 `auto-offset-reset: earliest` plus a committed group offset is what makes that work: the consumer
@@ -455,8 +527,9 @@ resumes where it left off rather than skipping whatever arrived while it was awa
 One thing this exercise surfaced. On the very first run the consumer did **not** pick the message up,
 because the topic did not exist when the listener subscribed — Kafka does not notify a consumer that
 a topic has appeared; it finds out on the next metadata refresh, five minutes later by default.
-`KafkaTopicsConfig` now declares the consumed topic, so it exists the moment this service does and
-the subscription takes effect immediately. Topics this service *publishes* to are not declared:
+`KafkaTopicsConfig` now declares every topic this service consumes — `product.deactivated`,
+`stock.confirmed`, `stock.reservation.released` and `stock.returned` — so each exists the moment
+this service does and the subscriptions take effect immediately. Topics this service *publishes* to are not declared:
 Kafka creates them on first send, and their names come from the events, so listing them would be a
 second place to keep in step with `eventTopic()`.
 

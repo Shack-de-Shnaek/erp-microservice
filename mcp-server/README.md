@@ -254,9 +254,10 @@ Add to `opencode.jsonc` in the project root (already configured):
 ## How it was tested
 
 1. **Smoke test** (`test_client.py`): connects over stdio, lists the catalogue, calls every read
-   tool, and checks that deliberately absent ids come back 404 rather than as a transport error.
-   `--write` adds a round trip that places an order against a product that actually has stock and
-   cancels it again - nothing that cannot be undone.
+   tool bar `catalog`, and checks that deliberately absent ids come back 404 rather than as a
+   transport error. `--write` adds a round trip that places an order against a product that
+   actually has stock and cancels it again - nothing that cannot be undone - and that is where
+   `catalog` is exercised, since it is what picks the product to order.
 2. **Full lifecycle**, by hand against the running stack: create → update items → approve →
    invoice → get invoice → reverse, plus the refusals (`register_payment` on a pending order,
    `reject_order` on one already approved), confirming both that every gateway route resolves and

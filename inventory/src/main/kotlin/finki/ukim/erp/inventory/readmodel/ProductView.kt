@@ -8,6 +8,8 @@ import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import org.hibernate.annotations.Immutable
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 
 @Entity
@@ -30,5 +32,13 @@ data class ProductView(
 
 interface ProductViewRepository : JpaRepository<ProductView, String> {
     fun findByStatus(status: ProductStatus): List<ProductView>
+
+    /**
+     * The paged form, for the list endpoint. Separate from the unpaged one above rather than
+     * replacing it: the query handler behind `FindProductsByStatusQuery` answers with a whole list
+     * and has no page to ask for.
+     */
+    fun findByStatus(status: ProductStatus, pageable: Pageable): Page<ProductView>
+
     fun findBySku(sku: String): ProductView?
 }

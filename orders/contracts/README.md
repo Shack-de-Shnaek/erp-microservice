@@ -10,8 +10,9 @@ pact whose `provider.name` is its own, so a mismatch does not fail, it silently 
 | 1 | HTTP out  | `orders` | `inventory` | `GET /api/products/{id}`, `GET /api/stock/{id}` | `clients/InventoryClientPactTest` |
 | 2 | HTTP in   | `inventory` | `orders` | `GET /orders/{id}` | `pact/OrdersHttpProviderPactTest` |
 | 3 | Kafka in  | `orders` | `inventory` | topic `product.deactivated` | `pact/ProductDeactivatedListenerTest` |
-| 4 | Kafka out | `inventory` | `orders` | topic `order.approved` | `pact/OrderApprovedProducerTest` |
-| 5 | Kafka out | `inventory` | `orders` | topic `order.nullified` | `pact/OrderApprovedProducerTest` |
+| 4 | Kafka in  | `orders` | `inventory` | topics `stock.confirmed`, `stock.reservation.released`, `stock.returned` | `handlers/StockLifecycleEventHandlerTest` (no pact — see below) |
+| 5 | Kafka out | `inventory` | `orders` | topic `order.approved` | `pact/OrderApprovedProducerTest` |
+| 6 | Kafka out | `inventory` | `orders` | topic `order.nullified` | `pact/OrderApprovedProducerTest` |
 
 Both parties are the same two services in every row, so all of these contracts would be written to a
 file called `orders-inventory.json` or `inventory-orders.json`. Where two of them would collide they
@@ -20,7 +21,7 @@ are kept apart by directory, not by renaming the parties:
 ```
 target/pacts/orders-inventory.json          # 1 + 3, generated here, merged into one V4 pact
 src/test/resources/pacts/http/inventory-orders.json      # 2, received from inventory
-src/test/resources/pacts/messages/inventory-orders.json  # 4 + 5, received from inventory
+src/test/resources/pacts/messages/inventory-orders.json  # 5 + 6, received from inventory
 contracts/published/orders-inventory.json   # committed copy of 1 + 3, for handing over
 ```
 
@@ -127,25 +128,76 @@ Message description: `Product Deactivated`.
 
 ### The rest of inventory's events, and why orders does not read them
 
-Inventory publishes eight external events. Orders consumes one. The others are listed here so the
-decision is on the record rather than implied by silence:
+Inventory publishes ten external events. Orders consumes four - `product.deactivated` above, and
+the three stock movements in contract 4 below. The others are listed here so the decision is on the
+record rather than implied by silence:
 
 | Topic | Why orders does not consume it |
 |---|---|
 | `product.created` | Orders has no catalogue of its own to keep in step; it asks about a product when somebody tries to order it. |
 | `product.updated` | Same. A renamed product does not change an order that was already priced. |
 | `product.reactivated` | The mirror of deactivation, but there is nothing to undo - the orders it rejected are finished, and reopening them from here would overrule a decision the aggregate already made. |
-| `stock.reserved` | Confirms the reservation inventory made for an approved order. Worth consuming the day orders wants to show "stock confirmed" on an order; today nothing waits on it. |
-| `stock.reservation.released` | The release orders itself asked for, echoed back. Reading it would be a loop, not information. |
-| `stock.confirmed` | Fulfilment, which this service does not model. |
-| `stock.adjusted` | A stocktake correction. Orders re-checks availability at approval and at invoicing anyway, which is the check that matters. |
+| `stock.reserved` | The hold orders itself asked for over HTTP, echoed back. It already has the answer; reading this would be hearing it twice. |
+| `stock.reservation.amended` | Same - the amendment was this service's `PUT /api/reservations/{orderRef}`, and it saw the result synchronously. |
+| `stock.adjusted` | A stocktake correction. An adjustment that actually costs an order its goods surfaces as a release or a return, which *is* consumed. |
 
 The one genuine gap is the opposite direction: inventory has no event for a reservation it could
 **not** make. An approved order whose stock ran out between approval and the reservation attempt is
 logged in inventory and never heard about in orders. Closing that needs a new event from inventory
 (`stock.reservation.failed`), not a listener here.
 
-## 4. Kafka out - orders approves an order
+## 4. Kafka in - the stock behind an order moves
+
+Consumer `orders`, provider `inventory`. Topics `stock.confirmed`, `stock.reservation.released` and
+`stock.returned`, consumed by `KafkaEventConsumer` and decided on by `StockLifecycleEventHandler`.
+
+This is the half of the lifecycle that is *not* a question. Stock is taken synchronously when an
+order is placed, because a customer told "your order is placed" has been promised goods and that
+promise must not rest on a message in flight. Everything that happens to the stock afterwards is
+news, and arrives as an event.
+
+`stock.confirmed` - the goods for this order have left the shelf, so the order is approved:
+
+```json
+{
+  "stockItemId": "22222222-2222-2222-2222-222222222222",
+  "orderRef": "Order:9f1c0a4e-2f6b-4d1e-9c33-7a5b2e8d10f4",
+  "quantity": 5
+}
+```
+
+`stock.reservation.released` and `stock.returned` - a hold let go, and confirmed goods put back.
+Different facts on inventory's side, the same fact here, so they share a DTO and a handler:
+
+```json
+{
+  "stockItemId": "22222222-2222-2222-2222-222222222222",
+  "orderRef": "Order:9f1c0a4e-2f6b-4d1e-9c33-7a5b2e8d10f4",
+  "quantity": 5,
+  "reason": "WITHDRAWN_BY_INVENTORY"
+}
+```
+
+`orderRef` is the order's own id - inventory keys a reservation by the reference orders gave it -
+so a message about a stock item is answerable against an order without this service knowing what a
+stock item is.
+
+**`reason` is the load-bearing field**, and the only one besides `orderRef` that orders requires. It
+says whether this service asked for the release or inventory decided it, and getting that wrong is
+severe in both directions: reading our own cancellations as withdrawals would reject every order
+the moment it was cancelled, and reading withdrawals as our own would leave orders standing on
+goods that are gone. `WITHDRAWN_BY_INVENTORY` rejects the order; `ORDER_NULLIFIED` is the echo of
+this service's own `order.nullified` and is read and dropped. A reason orders has not been taught
+about becomes `UNKNOWN` and is treated as *not* a withdrawal - the safe direction, since the order
+is left alone rather than closed on a guess.
+
+**No pact, deliberately.** A consumer pact is a demand on the provider, and these three are
+consumed on a best-effort basis: orders acts on them when they arrive and is correct without them
+(approval and invoicing both re-read the reservation over HTTP, which is contract 1). Pinning them
+would oblige inventory to keep publishing events nothing depends on. `StockLifecycleEventHandlerTest`
+and `KafkaEventConsumerTest` cover the behaviour on this side instead.
+
+## 5. Kafka out - orders approves an order
 
 Consumer `inventory`, provider `orders`. Topic `order.approved`, published by
 `EventMessagingEventHandler` from `OrderApprovedExternalEvent`.
@@ -153,18 +205,25 @@ Consumer `inventory`, provider `orders`. Topic `order.approved`, published by
 ```json
 {
   "orderId": "Order:9f1c0a4e-2f6b-4d1e-9c33-7a5b2e8d10f4",
-  "lines": [ { "productId": 1, "quantity": 5 } ],
+  "lines": [ { "productId": "11111111-1111-1111-1111-111111111111", "quantity": 5 } ],
   "approvedAt": "2026-09-05T10:15:30"
 }
 ```
 
-Approval is the moment goods are committed to a customer, so the lines travel with the event -
-inventory must not have to call back to find out what to reserve. Prices and the customer are
-deliberately absent: they are on the internal `OrderApprovedEvent` and are nobody else's business.
+**Inventory no longer acts on this.** It once did - approval used to be the moment stock was
+reserved - but the reservation moved to the moment the order is *placed*, over HTTP, where the
+caller can be told "no" while it still matters. By the time approval happens the goods are already
+aside, so `OrderLifecycleSaga` has nothing to do here and inventory's consumer does not subscribe
+to the topic.
+
+The contract is kept because the pact is still verified and the event is still published, for
+anyone following the life of an order rather than only holding stock against it. The lines travel
+with it so such a consumer need not call back. Prices and the customer are deliberately absent:
+they are on the internal `OrderApprovedEvent` and are nobody else's business.
 
 Message description: `Order Approved`. Provider state: `an order has been approved`.
 
-## 5. Kafka out - an order is void
+## 6. Kafka out - an order is void
 
 Consumer `inventory`, provider `orders`. Topic `order.nullified`, published by
 `EventMessagingEventHandler` from `OrderNullifiedExternalEvent`.
@@ -216,7 +275,7 @@ they change about `/api/products`, `/api/stock` or `product.deactivated` that th
 on now breaks
 their build instead of our runtime.
 
-**Receiving theirs (contracts 2, 4 and 5).** Inventory's consumer tests produce
+**Receiving theirs (contracts 2, 5 and 6).** Inventory's consumer tests produce
 `inventory-orders.json`. Both of their contracts with us carry that same name, so they go in
 separate directories here:
 

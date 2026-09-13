@@ -193,15 +193,22 @@ echo ""
 
 # -----------------------------------------------------------
 # 11. Idempotent re-reserve (same order ref → no-op)
+#
+# It has to be an order ref that is still *holding* stock. Idempotency lives in the reservation
+# ledger, and confirming an order takes its ref out of that ledger - so repeating smoke-order-1,
+# which step 7 confirmed, would not be a repeat at all: it would be a second, genuine hold.
 # -----------------------------------------------------------
 echo "[11] Idempotent re-reserve"
+curl -s -o /dev/null -H "Authorization: Bearer $TOKEN" -X POST "$BASE_URL/api/stock/$PRODUCT_ID/reserve" \
+    -H "Content-Type: application/json" \
+    -d '{"orderRef":"smoke-order-2","quantity":10}'
 RERESERVE_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" -w "\n%{http_code}" -X POST "$BASE_URL/api/stock/$PRODUCT_ID/reserve" \
     -H "Content-Type: application/json" \
-    -d '{"orderRef":"smoke-order-1","quantity":10}')
+    -d '{"orderRef":"smoke-order-2","quantity":10}')
 HTTP_CODE=$(echo "$RERESERVE_RESP" | tail -1)
 BODY=$(echo "$RERESERVE_RESP" | sed '$d')
 assert_status "Re-reserve same order returns 200" "$HTTP_CODE" "200"
-assert_contains "Reserved still 10 (no-op)" "$BODY" '"reserved":0'
+assert_contains "Reserved still 10 (no-op)" "$BODY" '"reserved":10'
 echo ""
 
 # -----------------------------------------------------------
